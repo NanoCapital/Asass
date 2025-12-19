@@ -1,0 +1,258 @@
+use crate::asaas_provider::{AsaasProvider, AsaasError};
+use crate::models::{
+    AsaasCustomerRequest, AsaasCustomerResponse, CreateInvoiceRequest, CreateInvoiceResponse,
+    CreatePixPaymentRequest, CreatePixPaymentResponse, UserData,
+};
+
+pub struct AsaasService {
+    asaas_provider: AsaasProvider,
+}
+
+impl AsaasService {
+    pub fn new(api_key: String) -> Self {
+        Self {
+            asaas_provider: AsaasProvider::new(api_key),
+        }
+    }
+
+    pub async fn create_pix_payment_user(
+        &self,
+        request: CreatePixPaymentRequest,
+        user_data: UserData,
+    ) -> Result<CreatePixPaymentResponse, Box<dyn std::error::Error + Send + Sync>> {
+        tracing::info!(
+            "🔍 Iniciando processo PIX para user_id: {}, order_id: {}, valor: R$ {:.2}",
+            request.user_id,
+            request.order_id,
+            request.value
+        );
+
+        // Criar customer no Asaas usando os dados do usuário
+        tracing::info!(
+            "👤 Criando customer no Asaas para user_id: {}",
+            request.user_id
+        );
+
+        let customer_data = AsaasCustomerRequest {
+            name: user_data.name,
+            email: user_data.email,
+            phone: Some(user_data.phone.clone()),
+            mobile_phone: Some(user_data.phone),
+            cpf_cnpj: Some(user_data.cpf),
+            person_type: Some("FISICA".to_string()),
+            company_name: Some(user_data.company_name.clone().unwrap_or_default(None)),
+            city: Some(user_data.city.clone().unwrap_or_default(None)),
+            state: Some(user_data.state.clone().unwrap_or_default(None)),
+            country: Some("Brasil".to_string()),
+            postal_code: Some(user_data.postal_code.clone().unwrap_or_default(None)),
+            address: Some(user_data.address.clone().unwrap_or_default(None)),
+            address_number: Some(user_data.address_number.clone().unwrap_or_default(None)),
+            complement: Some(user_data.complement.clone().unwrap_or_default(None)),
+            province: Some(user_data.province.clone().unwrap_or_default(None)),
+            external_reference: Some(request.user_id.clone()),
+            disabled: Some(false),
+            additional_emails: Some(user_data.additional_emails.clone().unwrap_or_default(None)),
+            municipal_inscription: Some(
+                user_data
+                    .municipal_inscription
+                    .clone()
+                    .unwrap_or_default(None),
+            ),
+            state_inscription: Some(user_data.state_inscription.clone().unwrap_or_default(None)),
+            observations: Some(user_data.observations.clone().unwrap_or_default(None)),
+        };
+
+        let customer = self.upsert_customer(customer_data).await?;
+        let customer_id = customer.id.clone();
+        tracing::info!("✅ Customer upsert realizado no Asaas: {}", customer_id);
+
+        // Criar cobrança PIX no Asaas
+        tracing::info!(
+            "💳 Criando cobrança PIX no Asaas - customer_id: {}, valor: R$ {:.2}",
+            customer_id,
+            request.value
+        );
+        let payment = self
+            .asaas_provider
+            .create_pix_payment(
+                &customer_id,
+                request.value,
+                request.description,
+                Some(request.order_id.clone()),
+            )
+            .await?;
+        tracing::info!(
+            "✅ Cobrança PIX criada - asaas_payment_id: {}, status: {}",
+            payment.id,
+            payment.status
+        );
+
+        // Obter QR Code PIX
+        tracing::info!("📱 Obtendo QR Code PIX do Asaas...");
+        let pix_qr = self.asaas_provider.get_pix_qr_code(&payment.id).await?;
+        tracing::info!(
+            "✅ QR Code PIX obtido - payload_length: {}, expiration: {}",
+            pix_qr.payload.len(),
+            pix_qr.expiration_date
+        );
+
+        let pix_payment = CreatePixPaymentResponse {
+            payment_id: payment.id.clone(),
+            asaas_payment_id: payment.id,
+            qr_code_base64: pix_qr.encoded_image,
+            payload: pix_qr.payload,
+            expiration_date: pix_qr.expiration_date,
+            value: payment.value,
+            due_date: payment.due_date,
+            status: payment.status,
+        };
+
+        tracing::info!(
+            "🎉 Processo PIX concluído com sucesso - payment_id: {}, valor: R$ {:.2}",
+            pix_payment.payment_id,
+            pix_payment.value
+        );
+
+        Ok(pix_payment)
+    }
+
+    pub async fn create_invoice(
+        &self,
+        request: CreateInvoiceRequest,
+        user_data: UserData,
+    ) -> Result<CreateInvoiceResponse, Box<dyn std::error::Error + Send + Sync>> {
+        tracing::info!(
+            "📄 Iniciando processo de NF-e para user_id: {}, order_id: {}, valor: R$ {:.2}",
+            request.user_id,
+            request.order_id,
+            request.value
+        );
+
+        // Criar customer no Asaas usando os dados do usuário (reutilizar lógica existente)
+        tracing::info!(
+            "👤 Criando/verificando customer no Asaas para user_id: {}",
+            request.user_id
+        );
+
+        let customer_data = AsaasCustomerRequest {
+            name: user_data.name,
+            email: user_data.email,
+            phone: Some(user_data.phone.clone()),
+            mobile_phone: Some(user_data.phone),
+            cpf_cnpj: Some(user_data.cpf),
+            person_type: Some("FISICA".to_string()),
+            company_name: Some(user_data.company_name.clone().unwrap_or_default(None)),
+            city: Some(user_data.city.clone().unwrap_or_default(None)),
+            state: Some(user_data.state.clone().unwrap_or_default(None)),
+            country: Some("Brasil".to_string()),
+            postal_code: Some(user_data.postal_code.clone().unwrap_or_default(None)),
+            address: Some(user_data.address.clone().unwrap_or_default(None)),
+            address_number: Some(user_data.address_number.clone().unwrap_or_default(None)),
+            complement: Some(user_data.complement.clone().unwrap_or_default(None)),
+            province: Some(user_data.province.clone().unwrap_or_default(None)),
+            external_reference: Some(request.user_id.clone()),
+            disabled: Some(false),
+            additional_emails: Some(user_data.additional_emails.clone().unwrap_or_default(None)),
+            municipal_inscription: Some(
+                user_data
+                    .municipal_inscription
+                    .clone()
+                    .unwrap_or_default(None),
+            ),
+            state_inscription: Some(user_data.state_inscription.clone().unwrap_or_default(None)),
+            observations: Some(user_data.observations.clone().unwrap_or_default(None)),
+        };
+
+        let customer = self.upsert_customer(customer_data).await?;
+        let customer_id = customer.id.clone();
+        tracing::info!("✅ Customer upsert realizado no Asaas: {}", customer_id);
+
+        // Criar NF-e no Asaas
+        tracing::info!(
+            "📄 Criando NF-e no Asaas - customer_id: {}, valor: R$ {:.2}",
+            customer_id,
+            request.value
+        );
+
+        let invoice = self
+            .asaas_provider
+            .create_invoice(
+                &customer_id,
+                &request.service_description,
+                request.value,
+                request.observations,
+                None, // effective_date será hoje
+            )
+            .await?;
+        tracing::info!(
+            "✅ NF-e criada - asaas_invoice_id: {}, status: {}",
+            invoice.id,
+            invoice.status
+        );
+
+        let invoice_response = CreateInvoiceResponse {
+            invoice_id: invoice.id.clone(),
+            asaas_invoice_id: invoice.id,
+            status: invoice.status,
+            value: invoice.value,
+            effective_date: invoice.effective_date,
+            pdf_url: invoice.pdf_url,
+            xml_url: invoice.xml_url,
+        };
+
+        tracing::info!(
+            "🎉 Processo de NF-e concluído com sucesso - invoice_id: {}, valor: R$ {:.2}",
+            invoice_response.invoice_id,
+            invoice_response.value
+        );
+
+        Ok(invoice_response)
+    }
+
+    pub async fn upsert_customer(
+        &self,
+        customer_data: AsaasCustomerRequest,
+    ) -> Result<AsaasCustomerResponse, Box<dyn std::error::Error + Send + Sync>> {
+        let external_ref = customer_data
+            .external_reference
+            .as_ref()
+            .unwrap_or(&"".to_string())
+            .clone();
+
+        tracing::info!(
+            "🔄 Iniciando upsert de customer - name: {}, email: {}, external_ref: {}",
+            customer_data.name,
+            customer_data.email,
+            external_ref
+        );
+
+        if external_ref.is_empty() {
+            return Err("external_reference é obrigatório para upsert".into());
+        }
+
+        // Tentar buscar o customer existente
+        match self
+            .asaas_provider
+            .get_customer_by_external_reference(&external_ref)
+            .await?
+        {
+            Some(existing_customer) => {
+                tracing::info!(
+                    "Customer encontrado, atualizando - asaas_customer_id: {}",
+                    existing_customer.id
+                );
+                self.asaas_provider
+                    .update_customer(&existing_customer.id, customer_data)
+                    .await
+                    .map_err(Into::into)
+            }
+            None => {
+                tracing::info!("Customer não encontrado, criando novo");
+                self.asaas_provider
+                    .create_customer(customer_data)
+                    .await
+                    .map_err(Into::into)
+            }
+        }
+    }
+}
