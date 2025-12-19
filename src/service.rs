@@ -1,4 +1,4 @@
-use crate::asaas_provider::{AsaasProvider, AsaasError};
+use crate::asaas_provider::{AsaasProvider};
 use crate::models::{
     AsaasCustomerRequest, AsaasCustomerResponse, CreateInvoiceRequest, CreateInvoiceResponse,
     CreatePixPaymentRequest, CreatePixPaymentResponse, UserData,
@@ -40,26 +40,21 @@ impl AsaasService {
             mobile_phone: Some(user_data.phone),
             cpf_cnpj: Some(user_data.cpf),
             person_type: Some("FISICA".to_string()),
-            company_name: Some(user_data.company_name.clone().unwrap_or_default(None)),
-            city: Some(user_data.city.clone().unwrap_or_default(None)),
-            state: Some(user_data.state.clone().unwrap_or_default(None)),
+            company_name: user_data.company_name.clone(),
+            city: user_data.city.clone(),
+            state: user_data.state.clone(),
             country: Some("Brasil".to_string()),
-            postal_code: Some(user_data.postal_code.clone().unwrap_or_default(None)),
-            address: Some(user_data.address.clone().unwrap_or_default(None)),
-            address_number: Some(user_data.address_number.clone().unwrap_or_default(None)),
-            complement: Some(user_data.complement.clone().unwrap_or_default(None)),
-            province: Some(user_data.province.clone().unwrap_or_default(None)),
+            postal_code: user_data.postal_code.clone(),
+            address: user_data.address.clone(),
+            address_number: user_data.address_number.clone(),
+            complement: user_data.complement.clone(),
+            province: user_data.province.clone(),
             external_reference: Some(request.user_id.clone()),
             disabled: Some(false),
-            additional_emails: Some(user_data.additional_emails.clone().unwrap_or_default(None)),
-            municipal_inscription: Some(
-                user_data
-                    .municipal_inscription
-                    .clone()
-                    .unwrap_or_default(None),
-            ),
-            state_inscription: Some(user_data.state_inscription.clone().unwrap_or_default(None)),
-            observations: Some(user_data.observations.clone().unwrap_or_default(None)),
+            additional_emails: user_data.additional_emails.clone(),
+            municipal_inscription: user_data.municipal_inscription.clone(),
+            state_inscription: user_data.state_inscription.clone(),
+            observations: user_data.observations.clone(),
         };
 
         let customer = self.upsert_customer(customer_data).await?;
@@ -141,26 +136,21 @@ impl AsaasService {
             mobile_phone: Some(user_data.phone),
             cpf_cnpj: Some(user_data.cpf),
             person_type: Some("FISICA".to_string()),
-            company_name: Some(user_data.company_name.clone().unwrap_or_default(None)),
-            city: Some(user_data.city.clone().unwrap_or_default(None)),
-            state: Some(user_data.state.clone().unwrap_or_default(None)),
+            company_name: user_data.company_name.clone(),
+            city: user_data.city.clone(),
+            state: user_data.state.clone(),
             country: Some("Brasil".to_string()),
-            postal_code: Some(user_data.postal_code.clone().unwrap_or_default(None)),
-            address: Some(user_data.address.clone().unwrap_or_default(None)),
-            address_number: Some(user_data.address_number.clone().unwrap_or_default(None)),
-            complement: Some(user_data.complement.clone().unwrap_or_default(None)),
-            province: Some(user_data.province.clone().unwrap_or_default(None)),
+            postal_code: user_data.postal_code.clone(),
+            address: user_data.address.clone(),
+            address_number: user_data.address_number.clone(),
+            complement: user_data.complement.clone(),
+            province: user_data.province.clone(),
             external_reference: Some(request.user_id.clone()),
             disabled: Some(false),
-            additional_emails: Some(user_data.additional_emails.clone().unwrap_or_default(None)),
-            municipal_inscription: Some(
-                user_data
-                    .municipal_inscription
-                    .clone()
-                    .unwrap_or_default(None),
-            ),
-            state_inscription: Some(user_data.state_inscription.clone().unwrap_or_default(None)),
-            observations: Some(user_data.observations.clone().unwrap_or_default(None)),
+            additional_emails: user_data.additional_emails.clone(),
+            municipal_inscription: user_data.municipal_inscription.clone(),
+            state_inscription: user_data.state_inscription.clone(),
+            observations: user_data.observations.clone(),
         };
 
         let customer = self.upsert_customer(customer_data).await?;
