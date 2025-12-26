@@ -53,7 +53,7 @@ impl AsaasProvider {
             .client
             .post(format!("{}/customers", self.base_url))
             .header("Content-Type", "application/json")
-            .header("User-Agent", "assas_service")
+            .header("User-Agent", "asaas_service")
             .header("access_token", &self.api_key)
             .json(&customer_data)
             .send()
@@ -119,7 +119,7 @@ impl AsaasProvider {
             .client
             .post(format!("{}/payments", self.base_url))
             .header("Content-Type", "application/json")
-            .header("User-Agent", "assas_service")
+            .header("User-Agent", "asaas_service")
             .header("access_token", &self.api_key)
             .json(&asaas_request)
             .send()
@@ -167,7 +167,7 @@ impl AsaasProvider {
                 self.base_url, payment_id
             ))
             .header("Content-Type", "application/json")
-            .header("User-Agent", "assas_service")
+            .header("User-Agent", "asaas_service")
             .header("access_token", &self.api_key)
             .send()
             .await
@@ -235,7 +235,7 @@ impl AsaasProvider {
             .client
             .post(format!("{}/invoices", self.base_url))
             .header("Content-Type", "application/json")
-            .header("User-Agent", "assas_service")
+            .header("User-Agent", "asaas_service")
             .header("access_token", &self.api_key)
             .json(&asaas_request)
             .send()
@@ -281,7 +281,7 @@ impl AsaasProvider {
             .client
             .get(format!("{}/customers?externalReference={}", self.base_url, external_ref))
             .header("Content-Type", "application/json")
-            .header("User-Agent", "assas_service")
+            .header("User-Agent", "asaas_service")
             .header("access_token", &self.api_key)
             .send()
             .await
@@ -319,6 +319,57 @@ impl AsaasProvider {
         }
     }
 
+    pub async fn get_customer_by_cpf_cnpj(
+        &self,
+        cpf_cnpj: &str,
+    ) -> Result<Option<AsaasCustomerResponse>, AsaasError> {
+        tracing::info!(
+            "🔍 Buscando customer no Asaas por cpfCnpj: {}",
+            cpf_cnpj
+        );
+
+        let response = self
+            .client
+            .get(format!("{}/customers?cpfCnpj={}", self.base_url, cpf_cnpj))
+            .header("Content-Type", "application/json")
+            .header("User-Agent", "asaas_service")
+            .header("access_token", &self.api_key)
+            .send()
+            .await
+            .map_err(|e| AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e)))?;
+
+        if !response.status().is_success() {
+            if response.status() == 404 {
+                tracing::info!("Customer não encontrado no Asaas para cpfCnpj: {}", cpf_cnpj);
+                return Ok(None);
+            }
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Erro desconhecido".to_string());
+            return Err(AsaasError::ApiError(format!(
+                "Erro ao buscar customer no Asaas: {}",
+                error_text
+            )));
+        }
+
+        // Asaas retorna uma lista, mesmo que filtrada
+        let customers: Vec<AsaasCustomerResponse> = response.json().await.map_err(|e| {
+            AsaasError::ParseError(format!("Erro ao parsear resposta Asaas: {}", e))
+        })?;
+
+        if customers.is_empty() {
+            tracing::info!("Nenhum customer encontrado para cpfCnpj: {}", cpf_cnpj);
+            Ok(None)
+        } else {
+            tracing::info!(
+                "Customer encontrado no Asaas - asaas_customer_id: {}",
+                customers[0].id
+            );
+            Ok(Some(customers[0].clone()))
+        }
+    }
+
     pub async fn update_customer(
         &self,
         customer_id: &str,
@@ -335,7 +386,7 @@ impl AsaasProvider {
             .client
             .put(format!("{}/customers/{}", self.base_url, customer_id))
             .header("Content-Type", "application/json")
-            .header("User-Agent", "assas_service")
+            .header("User-Agent", "asaas_service")
             .header("access_token", &self.api_key)
             .json(&customer_data)
             .send()

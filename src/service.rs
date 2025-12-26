@@ -199,6 +199,34 @@ impl AsaasService {
         Ok(invoice_response)
     }
 
+    pub async fn getbycpf_cnpj(
+        &self,
+        cpf_cnpj: &str,
+    ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+        tracing::info!(
+            "🔍 Buscando customer no Asaas por CPF/CNPJ: {}",
+            cpf_cnpj
+        );
+
+        match self
+            .asaas_provider
+            .get_customer_by_cpf_cnpj(cpf_cnpj)
+            .await?
+        {
+            Some(customer) => {
+                tracing::info!(
+                    "Customer encontrado - customer_id: {}",
+                    customer.id
+                );
+                Ok(Some(customer.id))
+            }
+            None => {
+                tracing::info!("Customer não encontrado para CPF/CNPJ: {}", cpf_cnpj);
+                Ok(None)
+            }
+        }
+    }
+
     pub async fn upsert_customer(
         &self,
         customer_data: AsaasCustomerRequest,
