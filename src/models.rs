@@ -112,6 +112,44 @@ pub struct AsaasPixQrCodeResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AsaasCity {
+    pub object: String,
+    pub id: i32,
+    pub ibge_code: String,
+    pub name: String,
+    pub district_code: String,
+    pub district: String,
+    pub state: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AsaasAccountResponse {
+    pub object: String,
+    pub person_type: Option<String>,
+    pub company_type: Option<String>,
+    pub company: Option<String>,
+    pub cpf_cnpj: Option<String>,
+    pub email: String,
+    pub responsible_name: Option<String>,
+    pub phone: Option<String>,
+    pub mobile_phone: Option<String>,
+    pub postal_code: Option<String>,
+    pub address: Option<String>,
+    pub address_number: Option<String>,
+    pub complement: Option<String>,
+    pub province: Option<String>,
+    #[serde(rename = "city")]
+    pub city: Option<AsaasCity>,
+    pub inscricao_estadual: Option<String>,
+    pub name: String,
+    pub birth_date: Option<String>,
+    pub status: Option<String>,
+    pub denial_reason: Option<String>,
+    pub income_value: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CreateInvoiceRequest {
     pub user_id: String,
     pub service_description: String,

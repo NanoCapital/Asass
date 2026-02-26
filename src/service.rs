@@ -1,6 +1,6 @@
 use crate::asaas_provider::{AsaasProvider};
 use crate::models::{
-    AsaasCustomerRequest, AsaasCustomerResponse, CreateInvoiceRequest, CreateInvoiceResponse,
+    AsaasAccountResponse, AsaasCustomerRequest, AsaasCustomerResponse, CreateInvoiceRequest, CreateInvoiceResponse,
     CreatePixPaymentRequest, CreatePixPaymentResponse, UserData,
 };
 
@@ -272,5 +272,11 @@ impl AsaasService {
                     .map_err(Into::into)
             }
         }
+    }
+
+    pub async fn get_my_account(&self) -> Result<AsaasAccountResponse, Box<dyn std::error::Error + Send + Sync>> {
+        tracing::info!("📋 Obtendo informações da conta Asaas via AsaasService...");
+
+        self.asaas_provider.get_my_account().await.map_err(Into::into)
     }
 }

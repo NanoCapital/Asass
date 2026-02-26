@@ -1,5 +1,5 @@
 use crate::models::{
-    AsaasCustomerRequest, AsaasCustomerResponse, AsaasInvoiceRequest, AsaasInvoiceResponse,
+    AsaasAccountResponse, AsaasCustomerRequest, AsaasCustomerResponse, AsaasInvoiceRequest, AsaasInvoiceResponse,
     AsaasPaymentRequest, AsaasPaymentResponse, AsaasPixQrCodeResponse,
 };
 use chrono::Utc;
@@ -58,21 +58,27 @@ impl AsaasProvider {
             .json(&customer_data)
             .send()
             .await
-            .map_err(|e| AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e)))?;
+            .map_err(|e| AsaasError::RequestError {
+                message: format!("Erro na requisição para Asaas: {}", e),
+                status: None,
+                body: None,
+            })?;
 
-        if !response.status().is_success() {
+        let status = response.status();
+        if !status.is_success() {
+            let status_code = status.as_u16();
             let error_text = response
                 .text()
                 .await
                 .unwrap_or_else(|_| "Erro desconhecido".to_string());
             return Err(AsaasError::ApiError(format!(
-                "Erro ao criar customer no Asaas: {}",
-                error_text
+                "Erro ao criar customer no Asaas - Status: {}, Detalhes: {}",
+                status_code, error_text
             )));
         }
 
         let asaas_response: AsaasCustomerResponse = response.json().await.map_err(|e| {
-            AsaasError::ParseError(format!("Erro ao parsear resposta Asaas: {}", e))
+            AsaasError::ParseError(format!("Erro ao parsear resposta Asaas - Status: {}: {}", status.as_u16(), e))
         })?;
 
         tracing::info!(
@@ -336,26 +342,31 @@ impl AsaasProvider {
             .header("access_token", &self.api_key)
             .send()
             .await
-            .map_err(|e| AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e)))?;
+            .map_err(|e| AsaasError::RequestError {
+                message: format!("Erro na requisição para Asaas: {}", e),
+                status: None,
+                body: None,
+            })?;
 
         if !response.status().is_success() {
             if response.status() == 404 {
                 tracing::info!("Customer não encontrado no Asaas para cpfCnpj: {}", cpf_cnpj);
                 return Ok(None);
             }
+            let status = response.status().as_u16();
             let error_text = response
                 .text()
                 .await
                 .unwrap_or_else(|_| "Erro desconhecido".to_string());
             return Err(AsaasError::ApiError(format!(
-                "Erro ao buscar customer no Asaas: {}",
-                error_text
+                "Erro ao buscar customer no Asaas - Status: {}, Detalhes: {}",
+                status, error_text
             )));
         }
 
         // Asaas retorna uma lista, mesmo que filtrada
         let customers: Vec<AsaasCustomerResponse> = response.json().await.map_err(|e| {
-            AsaasError::ParseError(format!("Erro ao parsear resposta Asaas: {}", e))
+            AsaasError::ParseError(format!("Erro ao parsear resposta Asaas - Status: {}: {}", response.status().as_u16(), e))
         })?;
 
         if customers.is_empty() {
@@ -411,6 +422,43 @@ impl AsaasProvider {
         tracing::info!(
             "✅ Customer atualizado com sucesso no Asaas - asaas_customer_id: {}",
             asaas_response.id
+        );
+
+        Ok(asaas_response)
+    }
+
+    pub async fn get_my_account(&self) -> Result<AsaasAccountResponse, AsaasError> {
+        tracing::info!("📋 Obtendo informações da conta Asaas...");
+
+        let response = self
+            .client
+            .get(format!("{}/myAccount", self.base_url))
+            .header("Content-Type", "application/json")
+            .header("User-Agent", "asaas_service")
+            .header("access_token", &self.api_key)
+            .send()
+            .await
+            .map_err(|e| AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e)))?;
+
+        if !response.status().is_success() {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Erro desconhecido".to_string());
+            return Err(AsaasError::ApiError(format!(
+                "Erro ao obter informações da conta Asaas: {}",
+                error_text
+            )));
+        }
+
+        let asaas_response: AsaasAccountResponse = response.json().await.map_err(|e| {
+            AsaasError::ParseError(format!("Erro ao parsear resposta Asaas: {}", e))
+        })?;
+
+        tracing::info!(
+            "✅ Informações da conta obtidas - name: {}, email: {}",
+            asaas_response.name,
+            asaas_response.email
         );
 
         Ok(asaas_response)
