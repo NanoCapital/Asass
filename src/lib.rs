@@ -8,11 +8,8 @@ pub mod models;
 pub mod service;
 
 // Re-exportar tipos principais para facilitar o uso
-pub use service::AsaasService;
 pub use models::{
-    CreateInvoiceRequest,
-    CreateInvoiceResponse,
-    CreatePixPaymentRequest,
-    CreatePixPaymentResponse,
+    CreateInvoiceRequest, CreateInvoiceResponse, CreatePixPaymentRequest, CreatePixPaymentResponse,
     UserData,
 };
+pub use service::AsaasService;

@@ -210,4 +210,5 @@ pub struct UserData {
     pub municipal_inscription: Option<String>,
     pub state_inscription: Option<String>,
     pub observations: Option<String>,
+    pub asaas_customer_id: Option<String>,
 }

@@ -1,7 +1,8 @@
 use crate::models::{
-    AsaasAccountResponse, AsaasCustomerRequest, AsaasCustomerResponse, AsaasInvoiceRequest, AsaasInvoiceResponse,
-    AsaasPaymentRequest, AsaasPaymentResponse, AsaasPixQrCodeResponse,
+    AsaasAccountResponse, AsaasCustomerRequest, AsaasCustomerResponse, AsaasInvoiceRequest,
+    AsaasInvoiceResponse, AsaasPaymentRequest, AsaasPaymentResponse, AsaasPixQrCodeResponse,
 };
+
 use chrono::Utc;
 
 #[derive(Debug)]
@@ -58,10 +59,8 @@ impl AsaasProvider {
             .json(&customer_data)
             .send()
             .await
-            .map_err(|e| AsaasError::RequestError {
-                message: format!("Erro na requisição para Asaas: {}", e),
-                status: None,
-                body: None,
+            .map_err(|e| {
+                AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e))
             })?;
 
         let status = response.status();
@@ -78,7 +77,11 @@ impl AsaasProvider {
         }
 
         let asaas_response: AsaasCustomerResponse = response.json().await.map_err(|e| {
-            AsaasError::ParseError(format!("Erro ao parsear resposta Asaas - Status: {}: {}", status.as_u16(), e))
+            AsaasError::ParseError(format!(
+                "Erro ao parsear resposta Asaas - Status: {}: {}",
+                status.as_u16(),
+                e
+            ))
         })?;
 
         tracing::info!(
@@ -96,8 +99,7 @@ impl AsaasProvider {
         description: Option<String>,
         external_reference: Option<String>,
     ) -> Result<AsaasPaymentResponse, AsaasError> {
-        tracing::info!("💳 Criando pagamento PIX via AsaasProvider - customer_id: {}, valor: R$ {:.2}, external_reference: {:?}",
-            customer_id, value, external_reference);
+        tracing::info!("💳 Criando pagamento PIX via AsaasProvider - customer_id: {}, valor: R$ {:.2}, external_reference: {:?}", customer_id, value, external_reference);
 
         // Preparar a data de vencimento (hoje + 1 dia)
         let due_date = (Utc::now() + chrono::Duration::days(1))
@@ -130,7 +132,9 @@ impl AsaasProvider {
             .json(&asaas_request)
             .send()
             .await
-            .map_err(|e| AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e)))?;
+            .map_err(|e| {
+                AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let error_text = response
@@ -177,7 +181,9 @@ impl AsaasProvider {
             .header("access_token", &self.api_key)
             .send()
             .await
-            .map_err(|e| AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e)))?;
+            .map_err(|e| {
+                AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let error_text = response
@@ -212,14 +218,13 @@ impl AsaasProvider {
         effective_date: Option<String>,
     ) -> Result<AsaasInvoiceResponse, AsaasError> {
         tracing::info!(
-            "📄 Criando NF-e via AsaasProvider - customer_id: {}, valor: R$ {:.2}, service_description: {}",
+            "📄 Criando NF-e via AsaasProvider - customer_id: {}, valor: R$ {:.2}, service_description: {}", 
             customer_id, value, service_description
         );
 
         // Preparar a data de emissão (hoje se não especificada)
-        let effective_date = effective_date.unwrap_or_else(|| {
-            (Utc::now()).format("%Y-%m-%d").to_string()
-        });
+        let effective_date =
+            effective_date.unwrap_or_else(|| (Utc::now()).format("%Y-%m-%d").to_string());
 
         // Criar o payload para a API do Asaas
         let asaas_request = AsaasInvoiceRequest {
@@ -246,7 +251,9 @@ impl AsaasProvider {
             .json(&asaas_request)
             .send()
             .await
-            .map_err(|e| AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e)))?;
+            .map_err(|e| {
+                AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let error_text = response
@@ -285,17 +292,25 @@ impl AsaasProvider {
 
         let response = self
             .client
-            .get(format!("{}/customers?externalReference={}", self.base_url, external_ref))
+            .get(format!(
+                "{}/customers?externalReference={}",
+                self.base_url, external_ref
+            ))
             .header("Content-Type", "application/json")
             .header("User-Agent", "asaas_service")
             .header("access_token", &self.api_key)
             .send()
             .await
-            .map_err(|e| AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e)))?;
+            .map_err(|e| {
+                AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e))
+            })?;
 
         if !response.status().is_success() {
             if response.status() == 404 {
-                tracing::info!("Customer não encontrado no Asaas para external_reference: {}", external_ref);
+                tracing::info!(
+                    "Customer não encontrado no Asaas para external_reference: {}",
+                    external_ref
+                );
                 return Ok(None);
             }
             let error_text = response
@@ -309,12 +324,19 @@ impl AsaasProvider {
         }
 
         // Asaas retorna uma lista, mesmo que filtrada
+        let status_code = response.status().as_u16();
         let customers: Vec<AsaasCustomerResponse> = response.json().await.map_err(|e| {
-            AsaasError::ParseError(format!("Erro ao parsear resposta Asaas: {}", e))
+            AsaasError::ParseError(format!(
+                "Erro ao parsear resposta Asaas - Status: {}: {}",
+                status_code, e
+            ))
         })?;
 
         if customers.is_empty() {
-            tracing::info!("Nenhum customer encontrado para external_reference: {}", external_ref);
+            tracing::info!(
+                "Nenhum customer encontrado para external_reference: {}",
+                external_ref
+            );
             Ok(None)
         } else {
             tracing::info!(
@@ -329,10 +351,7 @@ impl AsaasProvider {
         &self,
         cpf_cnpj: &str,
     ) -> Result<Option<AsaasCustomerResponse>, AsaasError> {
-        tracing::info!(
-            "🔍 Buscando customer no Asaas por cpfCnpj: {}",
-            cpf_cnpj
-        );
+        tracing::info!("🔍 Buscando customer no Asaas por cpfCnpj: {}", cpf_cnpj);
 
         let response = self
             .client
@@ -342,15 +361,16 @@ impl AsaasProvider {
             .header("access_token", &self.api_key)
             .send()
             .await
-            .map_err(|e| AsaasError::RequestError {
-                message: format!("Erro na requisição para Asaas: {}", e),
-                status: None,
-                body: None,
+            .map_err(|e| {
+                AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e))
             })?;
 
         if !response.status().is_success() {
             if response.status() == 404 {
-                tracing::info!("Customer não encontrado no Asaas para cpfCnpj: {}", cpf_cnpj);
+                tracing::info!(
+                    "Customer não encontrado no Asaas para cpfCnpj: {}",
+                    cpf_cnpj
+                );
                 return Ok(None);
             }
             let status = response.status().as_u16();
@@ -365,8 +385,12 @@ impl AsaasProvider {
         }
 
         // Asaas retorna uma lista, mesmo que filtrada
+        let status_code = response.status().as_u16();
         let customers: Vec<AsaasCustomerResponse> = response.json().await.map_err(|e| {
-            AsaasError::ParseError(format!("Erro ao parsear resposta Asaas - Status: {}: {}", response.status().as_u16(), e))
+            AsaasError::ParseError(format!(
+                "Erro ao parsear resposta Asaas - Status: {}: {}",
+                status_code, e
+            ))
         })?;
 
         if customers.is_empty() {
@@ -402,7 +426,9 @@ impl AsaasProvider {
             .json(&customer_data)
             .send()
             .await
-            .map_err(|e| AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e)))?;
+            .map_err(|e| {
+                AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let error_text = response
@@ -438,7 +464,9 @@ impl AsaasProvider {
             .header("access_token", &self.api_key)
             .send()
             .await
-            .map_err(|e| AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e)))?;
+            .map_err(|e| {
+                AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let error_text = response

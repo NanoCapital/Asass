@@ -1,6 +1,4 @@
-use asaas_rust::{AsaasService, models::AsaasAccountResponse};
-use reqwest;
-use serde_json;
+use asaas_rust::{models::AsaasAccountResponse, AsaasService};
 
 #[tokio::test]
 async fn test_get_my_account() {

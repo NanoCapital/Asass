@@ -1,7 +1,7 @@
-use crate::asaas_provider::{AsaasProvider};
+use crate::asaas_provider::AsaasProvider;
 use crate::models::{
-    AsaasAccountResponse, AsaasCustomerRequest, AsaasCustomerResponse, CreateInvoiceRequest, CreateInvoiceResponse,
-    CreatePixPaymentRequest, CreatePixPaymentResponse, UserData,
+    AsaasAccountResponse, AsaasCustomerRequest, AsaasCustomerResponse, CreateInvoiceRequest,
+    CreateInvoiceResponse, CreatePixPaymentRequest, CreatePixPaymentResponse, UserData,
 };
 
 pub struct AsaasService {
@@ -27,39 +27,47 @@ impl AsaasService {
             request.value
         );
 
-        // Criar customer no Asaas usando os dados do usuário
-        tracing::info!(
-            "👤 Criando customer no Asaas para user_id: {}",
-            request.user_id
-        );
+        // Verificar se o customer já possui asaas_customer_id
+        let customer_id = if let Some(existing_customer_id) = &user_data.asaas_customer_id {
+            tracing::info!(
+                "👤 Customer já possui asaas_customer_id: {}, pulando criação",
+                existing_customer_id
+            );
+            existing_customer_id.clone()
+        } else {
+            // Criar customer no Asaas usando os dados do usuário
+            tracing::info!(
+                "👤 Criando customer no Asaas para user_id: {}",
+                request.user_id
+            );
 
-        let customer_data = AsaasCustomerRequest {
-            name: user_data.name,
-            email: user_data.email,
-            phone: Some(user_data.phone.clone()),
-            mobile_phone: Some(user_data.phone),
-            cpf_cnpj: Some(user_data.cpf),
-            person_type: Some("FISICA".to_string()),
-            company_name: user_data.company_name.clone(),
-            city: user_data.city.clone(),
-            state: user_data.state.clone(),
-            country: Some("Brasil".to_string()),
-            postal_code: user_data.postal_code.clone(),
-            address: user_data.address.clone(),
-            address_number: user_data.address_number.clone(),
-            complement: user_data.complement.clone(),
-            province: user_data.province.clone(),
-            external_reference: Some(request.user_id.clone()),
-            disabled: Some(false),
-            additional_emails: user_data.additional_emails.clone(),
-            municipal_inscription: user_data.municipal_inscription.clone(),
-            state_inscription: user_data.state_inscription.clone(),
-            observations: user_data.observations.clone(),
+            let customer_data = AsaasCustomerRequest {
+                name: user_data.name,
+                email: user_data.email,
+                phone: Some(user_data.phone.clone()),
+                mobile_phone: Some(user_data.phone),
+                cpf_cnpj: Some(user_data.cpf),
+                person_type: Some("FISICA".to_string()),
+                company_name: user_data.company_name.clone(),
+                city: user_data.city.clone(),
+                state: user_data.state.clone(),
+                country: Some("Brasil".to_string()),
+                postal_code: user_data.postal_code.clone(),
+                address: user_data.address.clone(),
+                address_number: user_data.address_number.clone(),
+                complement: user_data.complement.clone(),
+                province: user_data.province.clone(),
+                external_reference: Some(request.user_id.clone()),
+                disabled: Some(false),
+                additional_emails: user_data.additional_emails.clone(),
+                municipal_inscription: user_data.municipal_inscription.clone(),
+                state_inscription: user_data.state_inscription.clone(),
+                observations: user_data.observations.clone(),
+            };
+
+            let customer = self.upsert_customer(customer_data).await?;
+            customer.id.clone()
         };
-
-        let customer = self.upsert_customer(customer_data).await?;
-        let customer_id = customer.id.clone();
-        tracing::info!("✅ Customer upsert realizado no Asaas: {}", customer_id);
 
         // Criar cobrança PIX no Asaas
         tracing::info!(
@@ -203,10 +211,7 @@ impl AsaasService {
         &self,
         cpf_cnpj: &str,
     ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
-        tracing::info!(
-            "🔍 Buscando customer no Asaas por CPF/CNPJ: {}",
-            cpf_cnpj
-        );
+        tracing::info!("🔍 Buscando customer no Asaas por CPF/CNPJ: {}", cpf_cnpj);
 
         match self
             .asaas_provider
@@ -214,10 +219,7 @@ impl AsaasService {
             .await?
         {
             Some(customer) => {
-                tracing::info!(
-                    "Customer encontrado - customer_id: {}",
-                    customer.id
-                );
+                tracing::info!("Customer encontrado - customer_id: {}", customer.id);
                 Ok(Some(customer.id))
             }
             None => {
@@ -274,9 +276,14 @@ impl AsaasService {
         }
     }
 
-    pub async fn get_my_account(&self) -> Result<AsaasAccountResponse, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_my_account(
+        &self,
+    ) -> Result<AsaasAccountResponse, Box<dyn std::error::Error + Send + Sync>> {
         tracing::info!("📋 Obtendo informações da conta Asaas via AsaasService...");
 
-        self.asaas_provider.get_my_account().await.map_err(Into::into)
+        self.asaas_provider
+            .get_my_account()
+            .await
+            .map_err(Into::into)
     }
 }
