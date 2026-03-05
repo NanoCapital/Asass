@@ -1,8 +1,5 @@
 use crate::asaas_provider::AsaasProvider;
-use crate::models::{
-    AsaasAccountResponse, AsaasCustomerRequest, AsaasCustomerResponse, CreateInvoiceRequest,
-    CreateInvoiceResponse, CreatePixPaymentRequest, CreatePixPaymentResponse, UserData,
-};
+use crate::models::{AsaasAccountResponse, AsaasCustomerRequest, AsaasCustomerResponse, CreateInvoiceRequest, CreateInvoiceResponse, CreatePixPaymentRequest, CreatePixPaymentResponse, UserData};
 
 pub struct AsaasService {
     asaas_provider: AsaasProvider,

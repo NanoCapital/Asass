@@ -26,6 +26,7 @@ pub struct AsaasCustomerRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AsaasCustomerResponse {
     pub id: String,
     pub name: String,
@@ -89,6 +90,7 @@ pub struct AsaasPaymentRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AsaasPaymentResponse {
     pub id: String,
     pub status: String,

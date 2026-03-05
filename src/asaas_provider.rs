@@ -4,6 +4,7 @@ use crate::models::{
 };
 
 use chrono::Utc;
+use serde_json::Value;
 
 #[derive(Debug)]
 pub struct AsaasProvider {
@@ -40,6 +41,33 @@ impl AsaasProvider {
         }
     }
 
+    // Função auxiliar para extrair mensagens de erro da resposta da API
+    fn extract_error_messages(json_value: &Value) -> String {
+        if let Some(errors) = json_value.get("errors").and_then(|e| e.as_array()) {
+            let messages: Vec<String> = errors
+                .iter()
+                .filter_map(|err| {
+                    err.get("description")
+                        .and_then(|d| d.as_str())
+                        .map(|s| s.to_string())
+                })
+                .collect();
+            if messages.is_empty() {
+                "Erro desconhecido da API Asaas".to_string()
+            } else {
+                messages.join("; ")
+            }
+        } else if let Some(error) = json_value.get("error").or_else(|| json_value.get("message")) {
+            if let Some(msg) = error.as_str() {
+                msg.to_string()
+            } else {
+                "Erro da API Asaas (formato não reconhecido)".to_string()
+            }
+        } else {
+            "Resposta de erro da API Asaas sem mensagem detalhada".to_string()
+        }
+    }
+
     pub async fn create_customer(
         &self,
         customer_data: AsaasCustomerRequest,
@@ -65,14 +93,14 @@ impl AsaasProvider {
 
         let status = response.status();
         if !status.is_success() {
-            let status_code = status.as_u16();
             let error_text = response
                 .text()
                 .await
                 .unwrap_or_else(|_| "Erro desconhecido".to_string());
             return Err(AsaasError::ApiError(format!(
                 "Erro ao criar customer no Asaas - Status: {}, Detalhes: {}",
-                status_code, error_text
+                status.as_u16(),
+                error_text
             )));
         }
 
@@ -136,19 +164,25 @@ impl AsaasProvider {
                 AsaasError::RequestError(format!("Erro na requisição para Asaas: {}", e))
             })?;
 
-        if !response.status().is_success() {
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Erro desconhecido".to_string());
-            return Err(AsaasError::ApiError(format!(
-                "Erro da API Asaas: {}",
-                error_text
-            )));
+        let status = response.status();
+        let response_text = response.text().await.map_err(|e| {
+            AsaasError::RequestError(format!("Erro ao ler resposta da API Asaas: {}", e))
+        })?;
+
+        // Verificar se há erros na resposta (mesmo que status seja 200)
+        if let Ok(json_value) = serde_json::from_str::<Value>(&response_text) {
+            if json_value.get("errors").is_some() || json_value.get("error").is_some() {
+                let error_messages = Self::extract_error_messages(&json_value);
+                return Err(AsaasError::ApiError(format!(
+                    "Erro da API Asaas (Status: {}): {}",
+                    status.as_u16(),
+                    error_messages
+                )));
+            }
         }
 
-        // Parsear a resposta
-        let asaas_response: AsaasPaymentResponse = response.json().await.map_err(|e| {
+        // Se não há erros, tentar parsear como AsaasPaymentResponse
+        let asaas_response: AsaasPaymentResponse = serde_json::from_str(&response_text).map_err(|e| {
             AsaasError::ParseError(format!("Erro ao parsear resposta Asaas: {}", e))
         })?;
 
