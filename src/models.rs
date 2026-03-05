@@ -300,3 +300,14 @@ pub struct UserData {
     pub observations: Option<String>,
     pub asaas_customer_id: Option<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AsaasListResponse<T> {
+    pub object: String,
+    pub has_more: bool,
+    pub total_count: i32,
+    pub limit: i32,
+    pub offset: i32,
+    pub data: Vec<T>,
+}

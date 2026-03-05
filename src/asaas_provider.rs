@@ -1,6 +1,7 @@
 use crate::models::{
     AsaasAccountResponse, AsaasCustomerRequest, AsaasCustomerResponse, AsaasInvoiceRequest,
-    AsaasInvoiceResponse, AsaasPaymentRequest, AsaasPaymentResponse, AsaasPixQrCodeResponse,
+    AsaasInvoiceResponse, AsaasListResponse, AsaasPaymentRequest, AsaasPaymentResponse,
+    AsaasPixQrCodeResponse,
 };
 
 use chrono::Utc;
@@ -57,7 +58,10 @@ impl AsaasProvider {
             } else {
                 messages.join("; ")
             }
-        } else if let Some(error) = json_value.get("error").or_else(|| json_value.get("message")) {
+        } else if let Some(error) = json_value
+            .get("error")
+            .or_else(|| json_value.get("message"))
+        {
             if let Some(msg) = error.as_str() {
                 msg.to_string()
             } else {
@@ -170,7 +174,11 @@ impl AsaasProvider {
         })?;
 
         // Log da resposta bruta para debug
-        tracing::debug!("Resposta bruta da API Asaas (status {}): {}", status.as_u16(), response_text);
+        tracing::debug!(
+            "Resposta bruta da API Asaas (status {}): {}",
+            status.as_u16(),
+            response_text
+        );
 
         // Verificar se há erros na resposta (mesmo que status seja 200)
         if let Ok(json_value) = serde_json::from_str::<Value>(&response_text) {
@@ -185,9 +193,13 @@ impl AsaasProvider {
         }
 
         // Se não há erros, tentar parsear como AsaasPaymentResponse
-        let asaas_response: AsaasPaymentResponse = serde_json::from_str(&response_text).map_err(|e| {
-            AsaasError::ParseError(format!("Erro ao parsear resposta Asaas: {} - resposta: {}", e, response_text))
-        })?;
+        let asaas_response: AsaasPaymentResponse =
+            serde_json::from_str(&response_text).map_err(|e| {
+                AsaasError::ParseError(format!(
+                    "Erro ao parsear resposta Asaas: {} - resposta: {}",
+                    e, response_text
+                ))
+            })?;
 
         tracing::info!(
             "✅ Pagamento PIX criado no Asaas - payment_id: {}, status: {}",
@@ -362,14 +374,16 @@ impl AsaasProvider {
 
         // Asaas retorna uma lista, mesmo que filtrada
         let status_code = response.status().as_u16();
-        let customers: Vec<AsaasCustomerResponse> = response.json().await.map_err(|e| {
-            AsaasError::ParseError(format!(
-                "Erro ao parsear resposta Asaas - Status: {}: {}",
-                status_code, e
-            ))
-        })?;
 
-        if customers.is_empty() {
+        let list: AsaasListResponse<AsaasCustomerResponse> =
+            response.json().await.map_err(|e| {
+                AsaasError::ParseError(format!(
+                    "Erro ao parsear resposta Asaas - Status: {}: {}",
+                    status_code, e
+                ))
+            })?;
+
+        if list.data.is_empty() {
             tracing::info!(
                 "Nenhum customer encontrado para external_reference: {}",
                 external_ref
@@ -378,9 +392,9 @@ impl AsaasProvider {
         } else {
             tracing::info!(
                 "Customer encontrado no Asaas - asaas_customer_id: {}",
-                customers[0].id
+                list.data[0].id
             );
-            Ok(Some(customers[0].clone()))
+            Ok(Some(list.data[0].clone()))
         }
     }
 
@@ -423,22 +437,24 @@ impl AsaasProvider {
 
         // Asaas retorna uma lista, mesmo que filtrada
         let status_code = response.status().as_u16();
-        let customers: Vec<AsaasCustomerResponse> = response.json().await.map_err(|e| {
-            AsaasError::ParseError(format!(
-                "Erro ao parsear resposta Asaas - Status: {}: {}",
-                status_code, e
-            ))
-        })?;
 
-        if customers.is_empty() {
+        let list: AsaasListResponse<AsaasCustomerResponse> =
+            response.json().await.map_err(|e| {
+                AsaasError::ParseError(format!(
+                    "Erro ao parsear resposta Asaas - Status: {}: {}",
+                    status_code, e
+                ))
+            })?;
+
+        if list.data.is_empty() {
             tracing::info!("Nenhum customer encontrado para cpfCnpj: {}", cpf_cnpj);
             Ok(None)
         } else {
             tracing::info!(
                 "Customer encontrado no Asaas - asaas_customer_id: {}",
-                customers[0].id
+                list.data[0].id
             );
-            Ok(Some(customers[0].clone()))
+            Ok(Some(list.data[0].clone()))
         }
     }
 
