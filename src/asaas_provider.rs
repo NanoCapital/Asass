@@ -169,6 +169,9 @@ impl AsaasProvider {
             AsaasError::RequestError(format!("Erro ao ler resposta da API Asaas: {}", e))
         })?;
 
+        // Log da resposta bruta para debug
+        tracing::debug!("Resposta bruta da API Asaas (status {}): {}", status.as_u16(), response_text);
+
         // Verificar se há erros na resposta (mesmo que status seja 200)
         if let Ok(json_value) = serde_json::from_str::<Value>(&response_text) {
             if json_value.get("errors").is_some() || json_value.get("error").is_some() {
@@ -183,7 +186,7 @@ impl AsaasProvider {
 
         // Se não há erros, tentar parsear como AsaasPaymentResponse
         let asaas_response: AsaasPaymentResponse = serde_json::from_str(&response_text).map_err(|e| {
-            AsaasError::ParseError(format!("Erro ao parsear resposta Asaas: {}", e))
+            AsaasError::ParseError(format!("Erro ao parsear resposta Asaas: {} - resposta: {}", e, response_text))
         })?;
 
         tracing::info!(
