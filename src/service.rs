@@ -283,4 +283,16 @@ impl AsaasService {
             .await
             .map_err(Into::into)
     }
+
+    pub async fn get_customer_by_external_reference(
+        &self,
+        external_ref: &str,
+    ) -> Result<Option<AsaasCustomerResponse>, Box<dyn std::error::Error + Send + Sync>> {
+        tracing::info!("🔍 Buscando customer no Asaas por external_reference: {}", external_ref);
+
+        self.asaas_provider
+            .get_customer_by_external_reference(external_ref)
+            .await
+            .map_err(Into::into)
+    }
 }
