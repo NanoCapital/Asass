@@ -508,7 +508,8 @@ impl AsaasProvider {
 
     pub async fn get_my_account(&self) -> Result<AsaasAccountResponse, AsaasError> {
         tracing::info!("📋 Obtendo informações da conta Asaas...");
-
+        tracing::info!("🔐 API Key: {}", &self.api_key); 
+        
         let response = self
             .client
             .get(format!("{}/myAccount", self.base_url))
