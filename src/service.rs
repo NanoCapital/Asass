@@ -277,7 +277,7 @@ impl AsaasService {
         &self,
     ) -> Result<AsaasAccountResponse, Box<dyn std::error::Error + Send + Sync>> {
         tracing::info!("📋 Obtendo informações da conta Asaas via AsaasService...");
-
+        tracing::info!("🔐 API Key: {}", &self.api_key);
         self.asaas_provider
             .get_my_account()
             .await
