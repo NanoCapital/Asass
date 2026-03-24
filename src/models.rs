@@ -265,6 +265,7 @@ pub struct CreatePixPaymentRequest {
     pub description: Option<String>,
     pub external_reference: Option<String>,
     pub order_id: String,
+    pub due_date: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

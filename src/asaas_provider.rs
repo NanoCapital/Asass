@@ -130,20 +130,26 @@ impl AsaasProvider {
         value: f64,
         description: Option<String>,
         external_reference: Option<String>,
+        due_date: Option<String>,
     ) -> Result<AsaasPaymentResponse, AsaasError> {
         tracing::info!("💳 Criando pagamento PIX via AsaasProvider - customer_id: {}, valor: R$ {:.2}, external_reference: {:?}", customer_id, value, external_reference);
 
+        let due_date_new;
+        if due_date.is_none() {
+            due_date_new = (Utc::now() + chrono::Duration::days(1))
+                .format("%Y-%m-%d")
+                .to_string();
+        }else {
+            due_date_new = due_date.clone().unwrap();
+        }
         // Preparar a data de vencimento (hoje + 1 dia)
-        let due_date = (Utc::now() + chrono::Duration::days(1))
-            .format("%Y-%m-%d")
-            .to_string();
 
         // Criar o payload para a API do Asaas
         let asaas_request = AsaasPaymentRequest {
             customer: customer_id.to_string(),
             billing_type: "PIX".to_string(),
             value,
-            due_date,
+            due_date: due_date_new,
             description,
             external_reference,
             installment_count: None,
@@ -508,8 +514,8 @@ impl AsaasProvider {
 
     pub async fn get_my_account(&self) -> Result<AsaasAccountResponse, AsaasError> {
         tracing::info!("📋 Obtendo informações da conta Asaas...");
-        tracing::info!("🔐 API Key: {}", &self.api_key); 
-        
+        tracing::info!("🔐 API Key: {}", &self.api_key);
+
         let response = self
             .client
             .get(format!("{}/myAccount", self.base_url))

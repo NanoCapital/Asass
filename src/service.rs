@@ -79,6 +79,7 @@ impl AsaasService {
                 request.value,
                 request.description,
                 Some(request.order_id.clone()),
+                request.due_date.clone(),
             )
             .await?;
         tracing::info!(
@@ -101,7 +102,7 @@ impl AsaasService {
             asaas_payment_id: payment.id,
             qr_code_base64: pix_qr.encoded_image,
             payload: pix_qr.payload,
-            expiration_date: payment.due_date,
+            expiration_date: payment.due_date.clone(),
             value: payment.value,
             due_date: payment.due_date,
             status: payment.status,

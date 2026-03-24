@@ -15,6 +15,7 @@ async fn test_pix_payment_response() {
         description: Some("Teste de pagamento PIX".to_string()),
         external_reference: Some("test_order_id".to_string()),
         order_id: "test_order_id".to_string(),
+        due_date: None
     };
     
     // Dados do usuário (apenas para criar customer)
