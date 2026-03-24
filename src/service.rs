@@ -101,7 +101,7 @@ impl AsaasService {
             asaas_payment_id: payment.id,
             qr_code_base64: pix_qr.encoded_image,
             payload: pix_qr.payload,
-            expiration_date: payment.expiration_date,
+            expiration_date: payment.due_date,
             value: payment.value,
             due_date: payment.due_date,
             status: payment.status,
