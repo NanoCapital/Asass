@@ -134,15 +134,11 @@ impl AsaasProvider {
     ) -> Result<AsaasPaymentResponse, AsaasError> {
         tracing::info!("💳 Criando pagamento PIX via AsaasProvider - customer_id: {}, valor: R$ {:.2}, external_reference: {:?}", customer_id, value, external_reference);
 
-        let due_date_new;
-        if due_date.is_none() {
-            due_date_new = (Utc::now() + chrono::Duration::days(1))
+        let due_date_new = due_date.unwrap_or_else(|| {
+            (Utc::now() + chrono::Duration::days(10))
                 .format("%Y-%m-%d")
-                .to_string();
-        }else {
-            due_date_new = due_date.clone().unwrap();
-        }
-        // Preparar a data de vencimento (hoje + 1 dia)
+                .to_string()
+        });
 
         // Criar o payload para a API do Asaas
         let asaas_request = AsaasPaymentRequest {
@@ -158,6 +154,7 @@ impl AsaasProvider {
             interest: None,
             fine: None,
             postal_service: Some(false),
+            notify_customer: Some(false),
         };
 
         // Fazer a requisição para a API do Asaas

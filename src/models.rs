@@ -3,26 +3,41 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AsaasCustomerRequest {
     pub name: String,
+    #[serde(rename = "cpfCnpj")]
+    pub cpf_cnpj: String,
     pub email: String,
     pub phone: Option<String>,
+    #[serde(rename = "mobilePhone")]
     pub mobile_phone: Option<String>,
-    pub cpf_cnpj: Option<String>,
+    pub address: Option<String>,
+    #[serde(rename = "addressNumber")]
+    pub address_number: Option<String>,
+    pub complement: Option<String>,
+    pub province: Option<String>,
+    #[serde(rename = "postalCode")]
+    pub postal_code: Option<String>,
+    #[serde(rename = "externalReference")]
+    pub external_reference: Option<String>,
+    #[serde(rename = "notificationDisabled")]
+    pub notification_disabled: Option<bool>,
+    #[serde(rename = "additionalEmails")]
+    pub additional_emails: Option<String>,
+    #[serde(rename = "municipalInscription")]
+    pub municipal_inscription: Option<String>,
+    #[serde(rename = "stateInscription")]
+    pub state_inscription: Option<String>,
+    pub observations: Option<String>,
+    #[serde(rename = "groupName")]
+    pub group_name: Option<String>,
+    pub company: Option<String>,
+    #[serde(rename = "foreignCustomer")]
+    pub foreign_customer: Option<bool>,
     pub person_type: Option<String>,
     pub company_name: Option<String>,
     pub city: Option<String>,
     pub state: Option<String>,
     pub country: Option<String>,
-    pub postal_code: Option<String>,
-    pub address: Option<String>,
-    pub address_number: Option<String>,
-    pub complement: Option<String>,
-    pub external_reference: Option<String>,
-    pub province: Option<String>,
     pub disabled: Option<bool>,
-    pub additional_emails: Option<String>,
-    pub municipal_inscription: Option<String>,
-    pub state_inscription: Option<String>,
-    pub observations: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -133,6 +148,8 @@ pub struct AsaasPaymentRequest {
     pub fine: Option<serde_json::Value>,
     #[serde(rename = "postalService")]
     pub postal_service: Option<bool>,
+    #[serde(rename = "notifyCustomer")]
+    pub notify_customer: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

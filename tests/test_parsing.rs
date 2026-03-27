@@ -16,7 +16,7 @@ fn test_asaas_payment_response_parsing() {
         "dateCreated": "2026-03-05",
         "customer": "cus_000164538552"
     }"#;
-    
+
     match serde_json::from_str::<AsaasPaymentResponse>(json_str) {
         Ok(parsed) => {
             println!("\n✅ Parsing funcionou!");
@@ -50,7 +50,7 @@ fn test_asaas_payment_response_parsing_with_errors() {
             }
         ]
     }"#;
-    
+
     match serde_json::from_str::<AsaasPaymentResponse>(json_str) {
         Ok(_) => {
             println!("\n❌ Parsing inesperado funcionou!");

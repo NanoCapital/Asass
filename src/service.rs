@@ -1,5 +1,8 @@
 use crate::asaas_provider::AsaasProvider;
-use crate::models::{AsaasAccountResponse, AsaasCustomerRequest, AsaasCustomerResponse, CreateInvoiceRequest, CreateInvoiceResponse, CreatePixPaymentRequest, CreatePixPaymentResponse, UserData};
+use crate::models::{
+    AsaasAccountResponse, AsaasCustomerRequest, AsaasCustomerResponse, CreateInvoiceRequest,
+    CreateInvoiceResponse, CreatePixPaymentRequest, CreatePixPaymentResponse, UserData,
+};
 
 pub struct AsaasService {
     asaas_provider: AsaasProvider,
@@ -43,9 +46,9 @@ impl AsaasService {
                 email: user_data.email,
                 phone: Some(user_data.phone.clone()),
                 mobile_phone: Some(user_data.phone),
-                cpf_cnpj: Some(user_data.cpf),
+                cpf_cnpj: user_data.cpf,
                 person_type: Some("FISICA".to_string()),
-                company_name: user_data.company_name.clone(),
+                company: user_data.company_name.clone(),
                 city: user_data.city.clone(),
                 state: user_data.state.clone(),
                 country: Some("Brasil".to_string()),
@@ -60,6 +63,10 @@ impl AsaasService {
                 municipal_inscription: user_data.municipal_inscription.clone(),
                 state_inscription: user_data.state_inscription.clone(),
                 observations: user_data.observations.clone(),
+                notification_disabled: Some(true),
+                foreign_customer: Some(false),
+                group_name: None,
+                company_name: user_data.company_name.clone(),
             };
 
             let customer = self.upsert_customer(customer_data).await?;
@@ -140,9 +147,9 @@ impl AsaasService {
             email: user_data.email,
             phone: Some(user_data.phone.clone()),
             mobile_phone: Some(user_data.phone),
-            cpf_cnpj: Some(user_data.cpf),
+            cpf_cnpj: user_data.cpf,
             person_type: Some("FISICA".to_string()),
-            company_name: user_data.company_name.clone(),
+            company: user_data.company_name.clone(),
             city: user_data.city.clone(),
             state: user_data.state.clone(),
             country: Some("Brasil".to_string()),
@@ -157,6 +164,10 @@ impl AsaasService {
             municipal_inscription: user_data.municipal_inscription.clone(),
             state_inscription: user_data.state_inscription.clone(),
             observations: user_data.observations.clone(),
+            notification_disabled: Some(true),
+            foreign_customer: Some(false),
+            group_name: None,
+            company_name: user_data.company_name.clone(),
         };
 
         let customer = self.upsert_customer(customer_data).await?;
@@ -277,7 +288,7 @@ impl AsaasService {
     pub async fn get_my_account(
         &self,
     ) -> Result<AsaasAccountResponse, Box<dyn std::error::Error + Send + Sync>> {
-        tracing::info!("📋 Obtendo informações da conta Asaas via AsaasService...");       
+        tracing::info!("📋 Obtendo informações da conta Asaas via AsaasService...");
         self.asaas_provider
             .get_my_account()
             .await
@@ -288,7 +299,10 @@ impl AsaasService {
         &self,
         external_ref: &str,
     ) -> Result<Option<AsaasCustomerResponse>, Box<dyn std::error::Error + Send + Sync>> {
-        tracing::info!("🔍 Buscando customer no Asaas por external_reference: {}", external_ref);
+        tracing::info!(
+            "🔍 Buscando customer no Asaas por external_reference: {}",
+            external_ref
+        );
 
         self.asaas_provider
             .get_customer_by_external_reference(external_ref)

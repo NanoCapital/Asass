@@ -1,13 +1,13 @@
-use asaas_rust::AsaasService;
 use asaas_rust::models::CreatePixPaymentRequest;
+use asaas_rust::AsaasService;
 use std::env;
 
 #[tokio::test]
 async fn test_pix_payment_response() {
     let api_key = env::var("ASAAS_API_KEY").expect("ASAAS_API_KEY deve estar definida");
-    
+
     let service = AsaasService::new(api_key.to_string());
-    
+
     // Criar um request de pagamento PIX
     let request = CreatePixPaymentRequest {
         user_id: "test_user_id".to_string(),
@@ -15,9 +15,9 @@ async fn test_pix_payment_response() {
         description: Some("Teste de pagamento PIX".to_string()),
         external_reference: Some("test_order_id".to_string()),
         order_id: "test_order_id".to_string(),
-        due_date: None
+        due_date: None,
     };
-    
+
     // Dados do usuário (apenas para criar customer)
     let user_data = asaas_rust::models::UserData {
         name: "Test User".to_string(),
@@ -39,7 +39,7 @@ async fn test_pix_payment_response() {
         observations: None,
         asaas_customer_id: None,
     };
-    
+
     // Tentar criar o pagamento PIX
     match service.create_pix_payment_user(request, user_data).await {
         Ok(response) => {
@@ -54,11 +54,11 @@ async fn test_pix_payment_response() {
         }
         Err(e) => {
             println!("\n❌ Erro ao criar pagamento PIX: {}", e);
-            
+
             // Se for erro de parsing, vamos tentar ver a resposta bruta
             if e.to_string().contains("Parse error") {
                 println!("\n⚠️  Tentando obter resposta bruta da API...");
-                
+
                 // Criar cliente direto para ver a resposta
                 let client = reqwest::Client::new();
                 let response = client
@@ -79,19 +79,23 @@ async fn test_pix_payment_response() {
                         interest: None,
                         fine: None,
                         postal_service: Some(false),
+                        notify_customer: Some(false),
                     })
                     .send()
                     .await;
-                
+
                 match response {
                     Ok(resp) => {
                         let status = resp.status();
-                        let body = resp.text().await.unwrap_or_else(|_| "<não foi possível obter corpo>".to_string());
-                        
+                        let body = resp
+                            .text()
+                            .await
+                            .unwrap_or_else(|_| "<não foi possível obter corpo>".to_string());
+
                         println!("\nℹ️  Resposta da API:");
                         println!("Status: {}", status);
                         println!("Body: {}", body);
-                        
+
                         // Tentar parsear o JSON para ver o erro exato
                         match serde_json::from_str::<serde_json::Value>(&body) {
                             Ok(json) => {
