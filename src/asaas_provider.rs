@@ -76,6 +76,9 @@ impl AsaasProvider {
         &self,
         customer_data: AsaasCustomerRequest,
     ) -> Result<AsaasCustomerResponse, AsaasError> {
+        let payload = serde_json::to_string_pretty(&customer_data).map_err(|e| AsaasError::ParseError(format!("JSON serialize error: {}", e)))?;
+        tracing::info!(" API-ASAAS: 📤 Customer payload to Asaas:\n{}", payload);
+
         tracing::info!(
             "🌐 Enviando requisição para criar customer no Asaas - name: {}, email: {}",
             customer_data.name,
@@ -132,7 +135,7 @@ impl AsaasProvider {
         external_reference: Option<String>,
         due_date: Option<String>,
     ) -> Result<AsaasPaymentResponse, AsaasError> {
-        tracing::info!("💳 Criando pagamento PIX via AsaasProvider - customer_id: {}, valor: R$ {:.2}, external_reference: {:?}", customer_id, value, external_reference);
+        tracing::info!(" API-ASAAS: 💳 Criando pagamento PIX via AsaasProvider - customer_id: {}, valor: R$ {:.2}, external_reference: {:?}", customer_id, value, external_reference);
 
         let due_date_new = due_date.unwrap_or_else(|| {
             (Utc::now() + chrono::Duration::days(10))
@@ -405,7 +408,7 @@ impl AsaasProvider {
         &self,
         cpf_cnpj: &str,
     ) -> Result<Option<AsaasCustomerResponse>, AsaasError> {
-        tracing::info!("🔍 Buscando customer no Asaas por cpfCnpj: {}", cpf_cnpj);
+        tracing::info!(" API-ASAAS: 🔍 Buscando customer no Asaas por cpfCnpj: {}", cpf_cnpj);
 
         let response = self
             .client
@@ -450,7 +453,7 @@ impl AsaasProvider {
             })?;
 
         if list.data.is_empty() {
-            tracing::info!("Nenhum customer encontrado para cpfCnpj: {}", cpf_cnpj);
+            tracing::info!(" API-ASAAS: Nenhum customer encontrado para cpfCnpj: {}", cpf_cnpj);
             Ok(None)
         } else {
             tracing::info!(
@@ -466,6 +469,9 @@ impl AsaasProvider {
         customer_id: &str,
         customer_data: AsaasCustomerRequest,
     ) -> Result<AsaasCustomerResponse, AsaasError> {
+        let payload = serde_json::to_string_pretty(&customer_data).map_err(|e| AsaasError::ParseError(format!("JSON serialize error: {}", e)))?;
+        tracing::info!(" API-ASAAS: 📤 Update customer payload to Asaas:\n{}", payload);
+
         tracing::info!(
             "✏️ Atualizando customer no Asaas - customer_id: {}, name: {}, email: {}",
             customer_id,
@@ -510,8 +516,8 @@ impl AsaasProvider {
     }
 
     pub async fn get_my_account(&self) -> Result<AsaasAccountResponse, AsaasError> {
-        tracing::info!("📋 Obtendo informações da conta Asaas...");
-        tracing::info!("🔐 API Key: {}", &self.api_key);
+        tracing::info!(" API-ASAAS: 📋 Obtendo informações da conta Asaas...");
+        tracing::info!(" API-ASAAS: 🔐 API Key: {}", &self.api_key);
 
         let response = self
             .client

@@ -36,17 +36,21 @@ impl AsaasService {
             existing_customer_id.clone()
         } else {
             // Criar customer no Asaas usando os dados do usuário
+            let cpf = user_data.cpf.clone();
+            let name = user_data.name.clone();
+            let email = user_data.email.clone();
+            let phone = user_data.phone.clone();
             tracing::info!(
-                "👤 Criando customer no Asaas para user_id: {}",
-                request.user_id
+                "👤 Criando customer no Asaas para user_id: {}, cpf: {}",
+                request.user_id,user_data.cpf
             );
 
             let customer_data = AsaasCustomerRequest {
-                name: user_data.name,
-                email: user_data.email,
-                phone: Some(user_data.phone.clone()),
-                mobile_phone: Some(user_data.phone),
-                cpf_cnpj: user_data.cpf,
+                name: name.clone(),
+                email: email.clone(),
+                phone: Some(phone.clone()),
+                mobile_phone: Some(phone.clone()),
+                cpf_cnpj: cpf.clone(),
                 person_type: Some("FISICA".to_string()),
                 company: user_data.company_name.clone(),
                 city: user_data.city.clone(),
@@ -70,6 +74,21 @@ impl AsaasService {
             };
 
             let customer = self.upsert_customer(customer_data).await?;
+            
+            // Force update CPF if provided
+            if !cpf.is_empty() {
+                tracing::info!(" API-ASAAS: 🔄 Force updating customer CPF: {}", user_data.cpf);
+                let update_data = AsaasCustomerRequest {
+                    cpf_cnpj: cpf.clone(),
+                    name: name.clone(),
+                    email: email.clone(),
+                    phone: Some(phone.clone()),
+                    person_type: Some("FISICA".to_string()),
+                    ..Default::default()
+                };
+                self.asaas_provider.update_customer(&customer.id, update_data).await?;
+            }
+            
             customer.id.clone()
         };
 
@@ -96,7 +115,7 @@ impl AsaasService {
         );
 
         // Obter QR Code PIX
-        tracing::info!("📱 Obtendo QR Code PIX do Asaas...");
+        tracing::info!(" API-ASAAS: 📱 Obtendo QR Code PIX do Asaas...");
         let pix_qr = self.asaas_provider.get_pix_qr_code(&payment.id).await?;
         tracing::info!(
             "✅ QR Code PIX obtido - payload_length: {}, expiration: {}",
@@ -137,17 +156,21 @@ impl AsaasService {
         );
 
         // Criar customer no Asaas usando os dados do usuário (reutilizar lógica existente)
+        let cpf = user_data.cpf.clone();
+        let name = user_data.name.clone();
+        let email = user_data.email.clone();
+        let phone = user_data.phone.clone();
         tracing::info!(
             "👤 Criando/verificando customer no Asaas para user_id: {}",
             request.user_id
         );
 
         let customer_data = AsaasCustomerRequest {
-            name: user_data.name,
-            email: user_data.email,
-            phone: Some(user_data.phone.clone()),
-            mobile_phone: Some(user_data.phone),
-            cpf_cnpj: user_data.cpf,
+            name: name.clone(),
+            email: email.clone(),
+            phone: Some(phone.clone()),
+            mobile_phone: Some(phone.clone()),
+            cpf_cnpj: cpf.clone(),
             person_type: Some("FISICA".to_string()),
             company: user_data.company_name.clone(),
             city: user_data.city.clone(),
@@ -172,7 +195,22 @@ impl AsaasService {
 
         let customer = self.upsert_customer(customer_data).await?;
         let customer_id = customer.id.clone();
-        tracing::info!("✅ Customer upsert realizado no Asaas: {}", customer_id);
+        
+        // Force update CPF if provided
+        if !cpf.is_empty() {
+            tracing::info!(" API-ASAAS: 🔄 Force updating customer CPF for invoice: {}", user_data.cpf);
+            let update_data = AsaasCustomerRequest {
+                cpf_cnpj: cpf.clone(),
+                name: name.clone(),
+                email: email.clone(),
+                phone: Some(phone.clone()),
+                person_type: Some("FISICA".to_string()),
+                ..Default::default()
+            };
+            self.asaas_provider.update_customer(&customer_id, update_data).await?;
+        }
+        
+        tracing::info!(" API-ASAAS: ✅ Customer upsert realizado no Asaas: {}", customer_id);
 
         // Criar NF-e no Asaas
         tracing::info!(
@@ -220,7 +258,7 @@ impl AsaasService {
         &self,
         cpf_cnpj: &str,
     ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
-        tracing::info!("🔍 Buscando customer no Asaas por CPF/CNPJ: {}", cpf_cnpj);
+        tracing::info!(" API-ASAAS: 🔍 Buscando customer no Asaas por CPF/CNPJ: {}", cpf_cnpj);
 
         match self
             .asaas_provider
@@ -228,11 +266,11 @@ impl AsaasService {
             .await?
         {
             Some(customer) => {
-                tracing::info!("Customer encontrado - customer_id: {}", customer.id);
+                tracing::info!(" API-ASAAS: Customer encontrado - customer_id: {}", customer.id);
                 Ok(Some(customer.id))
             }
             None => {
-                tracing::info!("Customer não encontrado para CPF/CNPJ: {}", cpf_cnpj);
+                tracing::info!(" API-ASAAS: Customer não encontrado para CPF/CNPJ: {}", cpf_cnpj);
                 Ok(None)
             }
         }
@@ -276,7 +314,7 @@ impl AsaasService {
                     .map_err(Into::into)
             }
             None => {
-                tracing::info!("Customer não encontrado, criando novo");
+                tracing::info!(" API-ASAAS: Customer não encontrado, criando novo");
                 self.asaas_provider
                     .create_customer(customer_data)
                     .await
@@ -288,7 +326,7 @@ impl AsaasService {
     pub async fn get_my_account(
         &self,
     ) -> Result<AsaasAccountResponse, Box<dyn std::error::Error + Send + Sync>> {
-        tracing::info!("📋 Obtendo informações da conta Asaas via AsaasService...");
+        tracing::info!(" API-ASAAS: 📋 Obtendo informações da conta Asaas via AsaasService...");
         self.asaas_provider
             .get_my_account()
             .await
