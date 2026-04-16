@@ -12,7 +12,6 @@ pub struct AsaasProvider {
     api_key: String,
     base_url: String,
     client: reqwest::Client,
-    sandbox: Option<bool>,
 }
 
 #[derive(Debug)]
@@ -42,11 +41,10 @@ impl AsaasProvider {
             "https://www.asaas.com/api/v3".to_string()
         };
         Self {
-                    api_key,
-                    base_url,
-                    client: reqwest::Client::new(),
-                    sandbox,
-                }
+            api_key,
+            base_url,
+            client: reqwest::Client::new(),
+        }
     }
 
     // Função auxiliar para extrair mensagens de erro da resposta da API
@@ -83,7 +81,8 @@ impl AsaasProvider {
         &self,
         customer_data: AsaasCustomerRequest,
     ) -> Result<AsaasCustomerResponse, AsaasError> {
-        let payload = serde_json::to_string_pretty(&customer_data).map_err(|e| AsaasError::ParseError(format!("JSON serialize error: {}", e)))?;
+        let payload = serde_json::to_string_pretty(&customer_data)
+            .map_err(|e| AsaasError::ParseError(format!("JSON serialize error: {}", e)))?;
         tracing::info!(" API-ASAAS: 📤 Customer payload to Asaas:\n{}", payload);
 
         tracing::info!(
@@ -290,19 +289,19 @@ impl AsaasProvider {
 
         // Criar o payload para a API do Asaas
         let asaas_request = AsaasInvoiceRequest {
-                    customer: customer_id.to_string(),
-                    service_description: service_description.to_string(),
-                    observations,
-                    value,
-                    installments: None,
-                    effective_date: Some(effective_date.clone()),
-                    installment_value: None,
-                    taxes: None,
-                    municipal_service_id: None,
-                    municipal_service_code: None,
-                    municipal_service_name: None,
-                    sandbox: Some(true),
-                };
+            customer: customer_id.to_string(),
+            service_description: service_description.to_string(),
+            observations,
+            value,
+            installments: None,
+            effective_date: Some(effective_date.clone()),
+            installment_value: None,
+            taxes: None,
+            municipal_service_id: None,
+            municipal_service_code: None,
+            municipal_service_name: None,
+            sandbox: Some(true),
+        };
 
         // Fazer a requisição para a API do Asaas
         let response = self
@@ -416,7 +415,10 @@ impl AsaasProvider {
         &self,
         cpf_cnpj: &str,
     ) -> Result<Option<AsaasCustomerResponse>, AsaasError> {
-        tracing::info!(" API-ASAAS: 🔍 Buscando customer no Asaas por cpfCnpj: {}", cpf_cnpj);
+        tracing::info!(
+            " API-ASAAS: 🔍 Buscando customer no Asaas por cpfCnpj: {}",
+            cpf_cnpj
+        );
 
         let response = self
             .client
@@ -461,7 +463,10 @@ impl AsaasProvider {
             })?;
 
         if list.data.is_empty() {
-            tracing::info!(" API-ASAAS: Nenhum customer encontrado para cpfCnpj: {}", cpf_cnpj);
+            tracing::info!(
+                " API-ASAAS: Nenhum customer encontrado para cpfCnpj: {}",
+                cpf_cnpj
+            );
             Ok(None)
         } else {
             tracing::info!(
@@ -477,8 +482,12 @@ impl AsaasProvider {
         customer_id: &str,
         customer_data: AsaasCustomerRequest,
     ) -> Result<AsaasCustomerResponse, AsaasError> {
-        let payload = serde_json::to_string_pretty(&customer_data).map_err(|e| AsaasError::ParseError(format!("JSON serialize error: {}", e)))?;
-        tracing::info!(" API-ASAAS: 📤 Update customer payload to Asaas:\n{}", payload);
+        let payload = serde_json::to_string_pretty(&customer_data)
+            .map_err(|e| AsaasError::ParseError(format!("JSON serialize error: {}", e)))?;
+        tracing::info!(
+            " API-ASAAS: 📤 Update customer payload to Asaas:\n{}",
+            payload
+        );
 
         tracing::info!(
             "✏️ Atualizando customer no Asaas - customer_id: {}, name: {}, email: {}",
