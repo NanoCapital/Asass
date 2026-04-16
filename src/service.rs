@@ -9,9 +9,9 @@ pub struct AsaasService {
 }
 
 impl AsaasService {
-    pub fn new(api_key: String) -> Self {
+    pub fn new(api_key: String, sandbox: Option<bool>) -> Self {
         Self {
-            asaas_provider: AsaasProvider::new(api_key),
+            asaas_provider: AsaasProvider::new(api_key, sandbox),
         }
     }
 

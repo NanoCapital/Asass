@@ -4,7 +4,7 @@ use asaas_rust::{models::AsaasAccountResponse, AsaasService};
 async fn test_get_my_account() {
     let api_key = std::env::var("ASAAS_API_KEY").expect("ASAAS_API_KEY deve estar definida");
 
-    let service = AsaasService::new(api_key.to_string());
+    let service = AsaasService::new(api_key.to_string(), None);
 
     // Primeiro, vamos testar manualmente para ver a resposta bruta
     let client = reqwest::Client::new();

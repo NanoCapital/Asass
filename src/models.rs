@@ -104,6 +104,8 @@ pub struct AsaasInvoiceRequest {
     pub municipal_service_code: Option<String>,
     #[serde(rename = "municipalServiceName")]
     pub municipal_service_name: Option<String>,
+    #[serde(rename = "sandbox")]
+    pub sandbox: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

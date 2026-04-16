@@ -6,7 +6,7 @@ use std::env;
 async fn test_pix_payment_response() {
     let api_key = env::var("ASAAS_API_KEY").expect("ASAAS_API_KEY deve estar definida");
 
-    let service = AsaasService::new(api_key.to_string());
+    let service = AsaasService::new(api_key.to_string(), None);
 
     // Criar um request de pagamento PIX
     let request = CreatePixPaymentRequest {

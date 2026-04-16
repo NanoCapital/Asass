@@ -12,6 +12,7 @@ pub struct AsaasProvider {
     api_key: String,
     base_url: String,
     client: reqwest::Client,
+    sandbox: Option<bool>,
 }
 
 #[derive(Debug)]
@@ -34,12 +35,18 @@ impl std::fmt::Display for AsaasError {
 impl std::error::Error for AsaasError {}
 
 impl AsaasProvider {
-    pub fn new(api_key: String) -> Self {
+    pub fn new(api_key: String, sandbox: Option<bool>) -> Self {
+        let base_url = if let Some(true) = sandbox {
+            "https://sandbox.asaas.com/api/v3".to_string()
+        } else {
+            "https://www.asaas.com/api/v3".to_string()
+        };
         Self {
-            api_key,
-            base_url: "https://www.asaas.com/api/v3".to_string(),
-            client: reqwest::Client::new(),
-        }
+                    api_key,
+                    base_url,
+                    client: reqwest::Client::new(),
+                    sandbox,
+                }
     }
 
     // Função auxiliar para extrair mensagens de erro da resposta da API
@@ -283,18 +290,19 @@ impl AsaasProvider {
 
         // Criar o payload para a API do Asaas
         let asaas_request = AsaasInvoiceRequest {
-            customer: customer_id.to_string(),
-            service_description: service_description.to_string(),
-            observations,
-            value,
-            installments: None,
-            effective_date: Some(effective_date.clone()),
-            installment_value: None,
-            taxes: None,
-            municipal_service_id: None,
-            municipal_service_code: None,
-            municipal_service_name: None,
-        };
+                    customer: customer_id.to_string(),
+                    service_description: service_description.to_string(),
+                    observations,
+                    value,
+                    installments: None,
+                    effective_date: Some(effective_date.clone()),
+                    installment_value: None,
+                    taxes: None,
+                    municipal_service_id: None,
+                    municipal_service_code: None,
+                    municipal_service_name: None,
+                    sandbox: Some(true),
+                };
 
         // Fazer a requisição para a API do Asaas
         let response = self
