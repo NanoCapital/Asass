@@ -353,7 +353,6 @@ impl AsaasProvider {
             "📄 Criando NF-e via AsaasProvider - customer_id: {}, valor: R$ {:.2}, service_description: {}", 
             customer_id, value, service_description
         );
-
         // Preparar a data de emissão (hoje se não especificada)
         let effective_date =
             effective_date.unwrap_or_else(|| (Utc::now()).format("%Y-%m-%d").to_string());
