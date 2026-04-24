@@ -49,13 +49,23 @@ impl AsaasProvider {
 
     // Função auxiliar para extrair mensagens de erro da resposta da API
     fn extract_error_messages(json_value: &Value) -> String {
+        // Verificar primeiro o campo "errors" (array de erros)
         if let Some(errors) = json_value.get("errors").and_then(|e| e.as_array()) {
             let messages: Vec<String> = errors
                 .iter()
                 .filter_map(|err| {
-                    err.get("description")
+                    // Tentar extrair description
+                    let desc = err.get("description")
                         .and_then(|d| d.as_str())
-                        .map(|s| s.to_string())
+                        .map(|s| s.to_string());
+                    
+                    // Se não tiver description, tentar o campo "message"
+                    if desc.is_none() {
+                        return err.get("message")
+                            .and_then(|m| m.as_str())
+                            .map(|s| s.to_string());
+                    }
+                    desc
                 })
                 .collect();
             if messages.is_empty() {
@@ -63,16 +73,47 @@ impl AsaasProvider {
             } else {
                 messages.join("; ")
             }
-        } else if let Some(error) = json_value
-            .get("error")
-            .or_else(|| json_value.get("message"))
-        {
+        }
+        // Verificar campo "error" (objeto ou string)
+        else if let Some(error) = json_value.get("error") {
             if let Some(msg) = error.as_str() {
+                msg.to_string()
+            } else if let Some(obj) = error.as_object() {
+                // Se for objeto, tentar extrair description ou message
+                obj.get("description")
+                    .and_then(|d| d.as_str())
+                    .or_else(|| obj.get("message").and_then(|m| m.as_str()))
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "Erro da API Asaas (formato não reconhecido)".to_string())
+            } else {
+                "Erro da API Asaas (formato não reconhecido)".to_string()
+            }
+        }
+        // Verificar campo "message" direto
+        else if let Some(message) = json_value.get("message") {
+            if let Some(msg) = message.as_str() {
                 msg.to_string()
             } else {
                 "Erro da API Asaas (formato não reconhecido)".to_string()
             }
-        } else {
+        }
+        // Verificar campo "description" direto (caso comum em erros da Asaas)
+        else if let Some(description) = json_value.get("description") {
+            if let Some(msg) = description.as_str() {
+                msg.to_string()
+            } else {
+                "Erro da API Asaas (formato não reconhecido)".to_string()
+            }
+        }
+        // Verificar campo "code" direto (código de erro como ASA001)
+        else if let Some(code) = json_value.get("code") {
+            if let Some(c) = code.as_str() {
+                format!("Código de erro: {}", c)
+            } else {
+                "Erro desconhecido da API Asaas".to_string()
+            }
+        }
+        else {
             "Resposta de erro da API Asaas sem mensagem detalhada".to_string()
         }
     }
@@ -185,31 +226,61 @@ impl AsaasProvider {
             AsaasError::RequestError(format!("Erro ao ler resposta da API Asaas: {}", e))
         })?;
 
-        // Log da resposta bruta para debug
-        tracing::debug!(
-            "Resposta bruta da API Asaas (status {}): {}",
+        // Log da resposta bruta para debug (sempre, não só em nível debug)
+        tracing::warn!(
+            "🔍 Resposta bruta da API Asaas (status {}): {}",
             status.as_u16(),
             response_text
         );
 
-        // Verificar se há erros na resposta (mesmo que status seja 200)
+        // Primeiro, verificar se há erros no corpo da resposta (mesmo com status 200)
         if let Ok(json_value) = serde_json::from_str::<Value>(&response_text) {
-            if json_value.get("errors").is_some() || json_value.get("error").is_some() {
+            // Verificar campos de erro comuns
+            if json_value.get("errors").is_some()
+                || json_value.get("error").is_some()
+                || json_value.get("code").is_some()
+                || json_value.get("description").is_some()
+            {
                 let error_messages = Self::extract_error_messages(&json_value);
-                return Err(AsaasError::ApiError(format!(
-                    "Erro da API Asaas (Status: {}): {}",
+                
+                // Tentar extrair código de erro se existir
+                let error_code = json_value.get("code")
+                    .and_then(|c| c.as_str())
+                    .map(|c| format!(" [Código: {}]", c))
+                    .unwrap_or_default();
+                
+                tracing::error!(
+                    "❌ Erro da API Asaas detectado no corpo da resposta - Status: {}, Erro: {}{}",
                     status.as_u16(),
-                    error_messages
+                    error_messages,
+                    error_code
+                );
+                
+                return Err(AsaasError::ApiError(format!(
+                    "Erro da API Asaas (Status: {}): {}{}",
+                    status.as_u16(),
+                    error_messages,
+                    error_code
                 )));
             }
         }
 
-        // Se não há erros, tentar parsear como AsaasPaymentResponse
+        // Se não há erros explícitos, tentar parsear como AsaasPaymentResponse
         let asaas_response: AsaasPaymentResponse =
             serde_json::from_str(&response_text).map_err(|e| {
+                // Erro de parsing - logar a resposta completa para debug
+                tracing::error!(
+                    "❌ Erro ao parsear resposta Asaas como payment - Status: {}, Erro: {}, Resposta: {}",
+                    status.as_u16(),
+                    e,
+                    response_text
+                );
+                
                 AsaasError::ParseError(format!(
-                    "Erro ao parsear resposta Asaas: {} - resposta: {}",
-                    e, response_text
+                    "Erro ao parsear resposta Asaas - Status: {}: {} - Resposta: {}",
+                    status.as_u16(),
+                    e,
+                    response_text
                 ))
             })?;
 
