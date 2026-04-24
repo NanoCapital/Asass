@@ -55,13 +55,15 @@ impl AsaasProvider {
                 .iter()
                 .filter_map(|err| {
                     // Tentar extrair description
-                    let desc = err.get("description")
+                    let desc = err
+                        .get("description")
                         .and_then(|d| d.as_str())
                         .map(|s| s.to_string());
-                    
+
                     // Se não tiver description, tentar o campo "message"
                     if desc.is_none() {
-                        return err.get("message")
+                        return err
+                            .get("message")
                             .and_then(|m| m.as_str())
                             .map(|s| s.to_string());
                     }
@@ -112,8 +114,7 @@ impl AsaasProvider {
             } else {
                 "Erro desconhecido da API Asaas".to_string()
             }
-        }
-        else {
+        } else {
             "Resposta de erro da API Asaas sem mensagem detalhada".to_string()
         }
     }
@@ -238,24 +239,24 @@ impl AsaasProvider {
             // Verificar campos de erro comuns
             if json_value.get("errors").is_some()
                 || json_value.get("error").is_some()
-                || json_value.get("code").is_some()
-                || json_value.get("description").is_some()
+                || !status.is_success()
             {
                 let error_messages = Self::extract_error_messages(&json_value);
-                
+
                 // Tentar extrair código de erro se existir
-                let error_code = json_value.get("code")
+                let error_code = json_value
+                    .get("code")
                     .and_then(|c| c.as_str())
                     .map(|c| format!(" [Código: {}]", c))
                     .unwrap_or_default();
-                
+
                 tracing::error!(
                     "❌ Erro da API Asaas detectado no corpo da resposta - Status: {}, Erro: {}{}",
                     status.as_u16(),
                     error_messages,
                     error_code
                 );
-                
+
                 return Err(AsaasError::ApiError(format!(
                     "Erro da API Asaas (Status: {}): {}{}",
                     status.as_u16(),
@@ -275,7 +276,6 @@ impl AsaasProvider {
                     e,
                     response_text
                 );
-                
                 AsaasError::ParseError(format!(
                     "Erro ao parsear resposta Asaas - Status: {}: {} - Resposta: {}",
                     status.as_u16(),
