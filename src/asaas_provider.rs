@@ -49,73 +49,64 @@ impl AsaasProvider {
 
     // Função auxiliar para extrair mensagens de erro da resposta da API
     fn extract_error_messages(json_value: &Value) -> String {
+        let mut messages = Vec::new();
+        
         // Verificar primeiro o campo "errors" (array de erros)
         if let Some(errors) = json_value.get("errors").and_then(|e| e.as_array()) {
-            let messages: Vec<String> = errors
-                .iter()
-                .filter_map(|err| {
-                    // Tentar extrair description
-                    let desc = err
-                        .get("description")
-                        .and_then(|d| d.as_str())
-                        .map(|s| s.to_string());
-
-                    // Se não tiver description, tentar o campo "message"
-                    if desc.is_none() {
-                        return err
-                            .get("message")
-                            .and_then(|m| m.as_str())
-                            .map(|s| s.to_string());
-                    }
-                    desc
-                })
-                .collect();
-            if messages.is_empty() {
-                "Erro desconhecido da API Asaas".to_string()
-            } else {
-                messages.join("; ")
+            for err in errors {
+                if let Some(desc) = err.get("description").and_then(|d| d.as_str()) {
+                    messages.push(desc.to_string());
+                } else if let Some(msg) = err.get("message").and_then(|m| m.as_str()) {
+                    messages.push(msg.to_string());
+                }
             }
         }
+        
         // Verificar campo "error" (objeto ou string)
-        else if let Some(error) = json_value.get("error") {
+        if let Some(error) = json_value.get("error") {
             if let Some(msg) = error.as_str() {
-                msg.to_string()
+                messages.push(msg.to_string());
             } else if let Some(obj) = error.as_object() {
-                // Se for objeto, tentar extrair description ou message
-                obj.get("description")
-                    .and_then(|d| d.as_str())
-                    .or_else(|| obj.get("message").and_then(|m| m.as_str()))
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| "Erro da API Asaas (formato não reconhecido)".to_string())
-            } else {
-                "Erro da API Asaas (formato não reconhecido)".to_string()
+                if let Some(desc) = obj.get("description").and_then(|d| d.as_str()) {
+                    messages.push(desc.to_string());
+                } else if let Some(msg) = obj.get("message").and_then(|m| m.as_str()) {
+                    messages.push(msg.to_string());
+                }
             }
         }
+        
+        // Verificar campo "errorMessage" (novo formato possível)
+        if let Some(error_message) = json_value.get("errorMessage") {
+            if let Some(msg) = error_message.as_str() {
+                messages.push(msg.to_string());
+            }
+        }
+        
         // Verificar campo "message" direto
-        else if let Some(message) = json_value.get("message") {
+        if let Some(message) = json_value.get("message") {
             if let Some(msg) = message.as_str() {
-                msg.to_string()
-            } else {
-                "Erro da API Asaas (formato não reconhecido)".to_string()
+                messages.push(msg.to_string());
             }
         }
-        // Verificar campo "description" direto (caso comum em erros da Asaas)
-        else if let Some(description) = json_value.get("description") {
+        
+        // Verificar campo "description" direto
+        if let Some(description) = json_value.get("description") {
             if let Some(msg) = description.as_str() {
-                msg.to_string()
-            } else {
-                "Erro da API Asaas (formato não reconhecido)".to_string()
+                messages.push(msg.to_string());
             }
         }
-        // Verificar campo "code" direto (código de erro como ASA001)
-        else if let Some(code) = json_value.get("code") {
+        
+        // Verificar campo "code" direto
+        if let Some(code) = json_value.get("code") {
             if let Some(c) = code.as_str() {
-                format!("Código de erro: {}", c)
-            } else {
-                "Erro desconhecido da API Asaas".to_string()
+                messages.push(format!("Código: {}", c));
             }
+        }
+        
+        if messages.is_empty() {
+            "Erro desconhecido da API Asaas".to_string()
         } else {
-            "Resposta de erro da API Asaas sem mensagem detalhada".to_string()
+            messages.join("; ")
         }
     }
 
@@ -235,11 +226,24 @@ impl AsaasProvider {
         );
 
         // Primeiro, verificar se há erros no corpo da resposta (mesmo com status 200)
+        if !response_text.starts_with("{") || !response_text.ends_with("}") {
+            tracing::error!(
+                "❌ Resposta JSON inválida da API Asaas - Status: {}, Resposta: {}",
+                status.as_u16(),
+                response_text
+            );
+            return Err(AsaasError::ApiError(format!(
+                "Resposta JSON inválida da API Asaas - Status: {}: {}",
+                status.as_u16(),
+                response_text
+            )));
+        }
+        
         if let Ok(json_value) = serde_json::from_str::<Value>(&response_text) {
             // Verificar campos de erro comuns
             if json_value.get("errors").is_some()
                 || json_value.get("error").is_some()
-                || !status.is_success()
+                || json_value.get("errorMessage").is_some()
             {
                 let error_messages = Self::extract_error_messages(&json_value);
 
