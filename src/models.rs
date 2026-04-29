@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Deserializer};
+use serde::de::Error;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AsaasCustomerRequest {
@@ -40,6 +41,18 @@ pub struct AsaasCustomerRequest {
     pub disabled: Option<bool>,
 }
 
+// Helper to deserialize city which may be string or int
+fn deserialize_city<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum CityVal { String(String), Int(i64) }
+    let opt: Option<CityVal> = Option::deserialize(deserializer)?;
+    Ok(opt.map(|v| match v { CityVal::String(s) => s, CityVal::Int(i) => i.to_string() }))
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AsaasCustomerResponse {
     #[serde(rename = "id")]
@@ -58,8 +71,10 @@ pub struct AsaasCustomerResponse {
     pub person_type: Option<String>,
     #[serde(rename = "companyName")]
     pub company_name: Option<String>,
-    #[serde(rename = "city")]
+    #[serde(rename = "city", deserialize_with = "deserialize_city")]
     pub city: Option<String>,
+    #[serde(rename = "cityName")]
+    pub city_name: Option<String>,
     #[serde(rename = "state")]
     pub state: Option<String>,
     #[serde(rename = "country")]
