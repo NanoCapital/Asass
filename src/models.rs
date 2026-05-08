@@ -60,7 +60,7 @@ pub struct AsaasCustomerResponse {
     #[serde(rename = "name")]
     pub name: String,
     #[serde(rename = "email")]
-    pub email: String,
+    pub email: Option<String>,
     #[serde(rename = "phone")]
     pub phone: Option<String>,
     #[serde(rename = "mobilePhone")]
