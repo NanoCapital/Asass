@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize, Deserializer};
-use serde::de::Error;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AsaasCustomerRequest {
@@ -195,6 +194,8 @@ pub struct AsaasPaymentResponse {
     pub date_created: String,
     #[serde(rename = "customer")]
     pub customer: String,
+    #[serde(rename = "bankSlipUrl")]
+    pub bank_slip_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -312,6 +313,28 @@ pub struct CreatePixPaymentResponse {
     pub value: f64,
     pub due_date: String,
     pub status: String,
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateBillingPaymentRequest {
+    pub user_id: String,
+    pub value: f64,
+    pub description: Option<String>,
+    pub external_reference: Option<String>,
+    pub order_id: String,
+    pub due_date: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateBillingPaymentResponse {
+    pub payment_id: Option<String>,
+    pub asaas_payment_id: Option<String>,
+    pub qr_code_base64: Option<String>,
+    pub payload: Option<String>,
+    pub expiration_date: Option<String>,
+    pub value: f64,
+    pub due_date: Option<String>,
+    pub status: Option<String>,
+    pub bank_slip_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

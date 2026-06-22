@@ -3,7 +3,7 @@ use std::time::Duration;
 use crate::asaas_provider::AsaasProvider;
 use crate::models::{
     AsaasAccountResponse, AsaasCustomerRequest, AsaasCustomerResponse, CreateInvoiceRequest,
-    CreateInvoiceResponse, CreatePixPaymentRequest, CreatePixPaymentResponse, UserData,
+    CreateInvoiceResponse, CreatePixPaymentRequest, CreatePixPaymentResponse, UserData,CreateBillingPaymentRequest, CreateBillingPaymentResponse
 };
 
 pub struct AsaasService {
@@ -150,6 +150,124 @@ impl AsaasService {
         );
 
         Ok(pix_payment)
+    }
+    pub async fn create_billing_payment_user(
+        &self,
+        request: CreateBillingPaymentRequest,
+        user_data: UserData,
+    ) -> Result<CreateBillingPaymentResponse, Box<dyn std::error::Error + Send + Sync>> {
+        tracing::info!(
+            "🔍 Iniciando processo Boleto para user_id: {}, order_id: {}, valor: R$ {:.2}",
+            request.user_id,
+            request.order_id,
+            request.value
+        );
+
+        // Verificar se o customer já possui asaas_customer_id
+        let customer_id = if let Some(existing_customer_id) = &user_data.asaas_customer_id {
+            tracing::info!(
+                "👤 Customer já possui asaas_customer_id: {}, pulando criação",
+                existing_customer_id
+            );
+            existing_customer_id.clone()
+        } else {
+            // Criar customer no Asaas usando os dados do usuário
+            let cpf = user_data.cpf.clone();
+            let name = user_data.name.clone();
+            let email = user_data.email.clone();
+            let phone = user_data.phone.clone();
+            tracing::info!(
+                "👤 Criando customer no Asaas para user_id: {}, cpf: {}",
+                request.user_id,
+                user_data.cpf
+            );
+
+            let customer_data = AsaasCustomerRequest {
+                name: name.clone(),
+                email: email.clone(),
+                phone: Some(phone.clone()),
+                mobile_phone: Some(phone.clone()),
+                cpf_cnpj: cpf.clone(),
+                person_type: Some("FISICA".to_string()),
+                company: user_data.company_name.clone(),
+                city: user_data.city.clone(),
+                state: user_data.state.clone(),
+                country: Some("Brasil".to_string()),
+                postal_code: user_data.postal_code.clone(),
+                address: user_data.address.clone(),
+                address_number: user_data.address_number.clone(),
+                complement: user_data.complement.clone(),
+                province: user_data.province.clone(),
+                external_reference: Some(request.user_id.clone()),
+                disabled: Some(false),
+                additional_emails: user_data.additional_emails.clone(),
+                municipal_inscription: user_data.municipal_inscription.clone(),
+                state_inscription: user_data.state_inscription.clone(),
+                observations: user_data.observations.clone(),
+                notification_disabled: Some(true),
+                foreign_customer: Some(false),
+                group_name: None,
+                company_name: user_data.company_name.clone(),
+            };
+
+            let customer = self.upsert_customer(customer_data).await?;
+
+            // Force update CPF if provided
+            if !cpf.is_empty() {
+                tracing::info!(
+                    " API-ASAAS: 🔄 Force updating customer CPF: {}",
+                    user_data.cpf
+                );
+                let update_data = AsaasCustomerRequest {
+                    cpf_cnpj: cpf.clone(),
+                    name: name.clone(),
+                    email: email.clone(),
+                    phone: Some(phone.clone()),
+                    person_type: Some("FISICA".to_string()),
+                    ..Default::default()
+                };
+                self.asaas_provider
+                    .update_customer(&customer.id, update_data)
+                    .await?;
+            }
+
+            customer.id.clone()
+        };
+
+        // Criar cobrança Boleto no Asaas
+        tracing::info!(
+            "💳 Criando cobrança Boleto no Asaas - customer_id: {}, valor: R$ {:.2}",
+            customer_id,
+            request.value
+        );
+        let payment = self
+            .asaas_provider
+            .create_billing_payment(
+                &customer_id,
+                request.value,
+                request.description,
+                Some(request.order_id.clone()),
+                request.due_date.clone(),
+            )
+            .await?;
+        tracing::info!(
+            "✅ Cobrança Boleto criada - asaas_payment_id: {}, status: {},url: {:?}",
+            payment.id.clone(),
+            payment.status.clone(),payment.bank_slip_url
+        );
+        let billing = CreateBillingPaymentResponse {
+            payment_id: Some(payment.id.clone()),
+            asaas_payment_id:Some(payment.id.clone()),
+            expiration_date: Some(payment.due_date.clone()),
+            value: payment.value,
+            due_date: Some(payment.due_date),
+            status: Some(payment.status),
+            bank_slip_url: payment.bank_slip_url,
+            payload: None,
+            qr_code_base64: None,
+        };
+
+        Ok(billing)
     }
 
     pub async fn create_invoice(

@@ -94,18 +94,10 @@ impl AsaasProvider {
     {
         let status = response.status();
         let raw = response.text().await.map_err(|e| {
-            AsaasError::RequestError(format!(
-                "{} - erro lendo body da resposta: {}",
-                context, e
-            ))
+            AsaasError::RequestError(format!("{} - erro lendo body da resposta: {}", context, e))
         })?;
 
-        tracing::warn!(
-            "API-ASAAS RAW [{}] {} => {}",
-            status.as_u16(),
-            context,
-            raw
-        );
+        tracing::warn!("API-ASAAS RAW [{}] {} => {}", status.as_u16(), context, raw);
 
         if !status.is_success() {
             return Err(AsaasError::ApiError(format!(
@@ -220,6 +212,50 @@ impl AsaasProvider {
             .await
     }
 
+    pub async fn create_billing_payment(
+        &self,
+        customer_id: &str,
+        value: f64,
+        description: Option<String>,
+        external_reference: Option<String>,
+        due_date: Option<String>,
+    ) -> Result<AsaasPaymentResponse, AsaasError> {
+        let due_date = due_date.unwrap_or_else(|| {
+            (Utc::now() + chrono::Duration::days(10))
+                .format("%Y-%m-%d")
+                .to_string()
+        });
+
+        let request = AsaasPaymentRequest {
+            customer: customer_id.to_string(),
+            billing_type: "BOLETO".to_string(),
+            value,
+            due_date,
+            description,
+            external_reference,
+            installment_count: None,
+            installment_value: None,
+            discount: None,
+            interest: None,
+            fine: None,
+            postal_service: Some(false),
+            notify_customer: Some(false),
+        };
+
+        let response = self
+            .client
+            .post(format!("{}/payments", self.base_url))
+            .header("Content-Type", "application/json")
+            .header("User-Agent", "asaas_service")
+            .header("access_token", &self.api_key)
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| AsaasError::RequestError(e.to_string()))?;
+
+        self.parse_success_response(response, "create_billing_payment")
+            .await
+    }
     pub async fn get_pix_qr_code(
         &self,
         payment_id: &str,
@@ -249,9 +285,8 @@ impl AsaasProvider {
         observations: Option<String>,
         effective_date: Option<String>,
     ) -> Result<AsaasInvoiceResponse, AsaasError> {
-        let effective_date = effective_date.unwrap_or_else(|| {
-            Utc::now().format("%Y-%m-%d").to_string()
-        });
+        let effective_date =
+            effective_date.unwrap_or_else(|| Utc::now().format("%Y-%m-%d").to_string());
 
         let request = AsaasInvoiceRequest {
             customer: customer_id.to_string(),
@@ -300,9 +335,9 @@ impl AsaasProvider {
             .await
             .map_err(|e| AsaasError::RequestError(e.to_string()))?;
 
-        let list: AsaasListResponse<AsaasCustomerResponse> =
-            self.parse_success_response(response, "get_customer_by_external_reference")
-                .await?;
+        let list: AsaasListResponse<AsaasCustomerResponse> = self
+            .parse_success_response(response, "get_customer_by_external_reference")
+            .await?;
 
         Ok(list.data.into_iter().next())
     }
@@ -313,10 +348,7 @@ impl AsaasProvider {
     ) -> Result<Option<AsaasCustomerResponse>, AsaasError> {
         let response = self
             .client
-            .get(format!(
-                "{}/customers?cpfCnpj={}",
-                self.base_url, cpf_cnpj
-            ))
+            .get(format!("{}/customers?cpfCnpj={}", self.base_url, cpf_cnpj))
             .header("Content-Type", "application/json")
             .header("User-Agent", "asaas_service")
             .header("access_token", &self.api_key)
@@ -324,9 +356,9 @@ impl AsaasProvider {
             .await
             .map_err(|e| AsaasError::RequestError(e.to_string()))?;
 
-        let list: AsaasListResponse<AsaasCustomerResponse> =
-            self.parse_success_response(response, "get_customer_by_cpf_cnpj")
-                .await?;
+        let list: AsaasListResponse<AsaasCustomerResponse> = self
+            .parse_success_response(response, "get_customer_by_cpf_cnpj")
+            .await?;
 
         Ok(list.data.into_iter().next())
     }
@@ -351,9 +383,7 @@ impl AsaasProvider {
             .await
     }
 
-    pub async fn get_my_account(
-        &self,
-    ) -> Result<AsaasAccountResponse, AsaasError> {
+    pub async fn get_my_account(&self) -> Result<AsaasAccountResponse, AsaasError> {
         let response = self
             .client
             .get(format!("{}/myAccount", self.base_url))
